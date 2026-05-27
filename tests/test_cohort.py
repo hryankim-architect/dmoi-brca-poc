@@ -8,6 +8,7 @@ from dmoi_brca.cohort import (
     PAM50_BASAL,
     PAM50_LUMINAL,
     assign_group,
+    assign_lumab_group,
     build_cohort,
     normalize_pam50,
 )
@@ -104,3 +105,53 @@ def test_build_cohort_empty_raises():
 def test_constants_unchanged():
     assert frozenset({"LumA", "LumB"}) == PAM50_LUMINAL
     assert frozenset({"Basal"}) == PAM50_BASAL
+
+
+# ------------------ cohort v2 (LumA vs LumB) tests --------------------------
+
+def test_assign_lumab_group_luma():
+    row = _row(PAM50Call_RNAseq="LumA")
+    assert assign_lumab_group(row) == "LumA"
+
+
+def test_assign_lumab_group_lumb():
+    row = _row(PAM50Call_RNAseq="LumB")
+    assert assign_lumab_group(row) == "LumB"
+
+
+def test_assign_lumab_group_excludes_basal():
+    row = _row(PAM50Call_RNAseq="Basal")
+    assert assign_lumab_group(row) is None
+
+
+def test_assign_lumab_group_excludes_her2():
+    row = _row(PAM50Call_RNAseq="Her2")
+    assert assign_lumab_group(row) is None
+
+
+def test_assign_lumab_group_fallback_to_long_form():
+    row = _row(PAM50Call_RNAseq="", PAM50_mRNA_nature2012="Luminal A")
+    assert assign_lumab_group(row) == "LumA"
+
+
+def test_build_cohort_with_lumab_assigner():
+    clinical = pd.DataFrame([
+        {"sampleID": "P1", "PAM50Call_RNAseq": "LumA",
+         "PAM50_mRNA_nature2012": "", "ER_Status_nature2012": "",
+         "PR_Status_nature2012": "", "HER2_Final_Status_nature2012": ""},
+        {"sampleID": "P2", "PAM50Call_RNAseq": "LumB",
+         "PAM50_mRNA_nature2012": "", "ER_Status_nature2012": "",
+         "PR_Status_nature2012": "", "HER2_Final_Status_nature2012": ""},
+        {"sampleID": "P3", "PAM50Call_RNAseq": "Basal",
+         "PAM50_mRNA_nature2012": "", "ER_Status_nature2012": "",
+         "PR_Status_nature2012": "", "HER2_Final_Status_nature2012": ""},
+    ])
+    cohort, summary = build_cohort(
+        clinical, {"P1", "P2"}, {"P2"},
+        assigner=assign_lumab_group,
+        label_a="LumA", label_b="LumB",
+    )
+    assert len(cohort) == 2
+    assert summary.n_luminal_h_plus == 1  # label_a count
+    assert summary.n_basal_h_minus == 1   # label_b count
+    assert summary.n_both_modalities == 1  # P2

@@ -87,14 +87,47 @@ def assign_group(row: pd.Series) -> str | None:
     return None
 
 
+def assign_lumab_group(row: pd.Series) -> str | None:
+    """Cohort v2 (Week-2 re-scope): within-luminal LumA vs LumB discrimination.
+
+    Both poles are ER+ — the discriminating axis is proliferation
+    (LumB high Ki67 / cell cycle, LumA low). This is a harder, biologically
+    meaningful target that gives DMOI hypothesis-conditioning real headroom.
+
+    Returns "LumA" / "LumB" / None. ER-positivity NOT enforced — the PAM50
+    LumA/LumB call IS the ER+ filter by definition.
+    """
+    pam50 = normalize_pam50(row)
+    if pam50 == "LumA":
+        return "LumA"
+    if pam50 == "LumB":
+        return "LumB"
+    return None
+
+
 def build_cohort(
     clinical: pd.DataFrame,
     rna_sample_ids: set[str],
     meth_sample_ids: set[str],
+    *,
+    assigner=assign_group,
+    label_a: str = "H_plus_luminal",
+    label_b: str = "H_minus_basal_tn",
 ) -> tuple[pd.DataFrame, CohortSummary]:
+    """Build a cohort table with (sample_id, group, has_rna, has_meth).
+
+    Args:
+        clinical:         Xena clinical phenotype matrix.
+        rna_sample_ids:   Set of sample IDs present in the RNA-seq matrix.
+        meth_sample_ids:  Set of sample IDs present in the methylation matrix.
+        assigner:         Row -> {label_a | label_b | None} function.
+                          Default: assign_group (H+/H- poles).
+                          Alternative: assign_lumab_group (LumA/LumB within-luminal).
+        label_a/label_b:  Labels returned by assigner. Default matches assign_group.
+    """
     rows = []
     for _, row in clinical.iterrows():
-        group = assign_group(row)
+        group = assigner(row)
         if group is None:
             continue
         sid = row["sampleID"]
@@ -109,14 +142,14 @@ def build_cohort(
 
     if cohort.empty:
         raise ValueError(
-            "No patients matched H+ or H- pole criteria. "
+            f"No patients matched {label_a} or {label_b} criteria. "
             "Check PAM50/ER/PR/HER2 column values in clinical matrix — "
             "did UCSC Xena change the value vocabulary?"
         )
 
     summary = CohortSummary(
-        n_luminal_h_plus=int((cohort["group"] == "H_plus_luminal").sum()),
-        n_basal_h_minus=int((cohort["group"] == "H_minus_basal_tn").sum()),
+        n_luminal_h_plus=int((cohort["group"] == label_a).sum()),
+        n_basal_h_minus=int((cohort["group"] == label_b).sum()),
         n_both_modalities=int((cohort["has_rna"] & cohort["has_meth"]).sum()),
         n_rna_only=int((cohort["has_rna"] & ~cohort["has_meth"]).sum()),
         n_meth_only=int((~cohort["has_rna"] & cohort["has_meth"]).sum()),

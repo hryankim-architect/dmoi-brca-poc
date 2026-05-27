@@ -130,15 +130,19 @@ def load_features(
     meth_topk: int = 10_000,
     rna_topk: int | None = None,
     dual_modality_only: bool = True,
+    positive_label: str = "H_minus_basal_tn",
 ) -> FeatureMatrices:
     """Load aligned (X_rna, X_meth, y) for the cohort.
 
     Args:
-        cohort_tsv:         Day-3 cohort file (sample_id/group/has_rna/has_meth).
+        cohort_tsv:         Cohort file (sample_id/group/has_rna/has_meth).
+                            Day-3 cohort (H+/H-) or cohort_v2 (LumA/LumB).
         rna_gz / meth_gz:   Xena gzipped matrices.
         meth_topk:          Keep top-K most-variable methylation probes (default 10k).
         rna_topk:           If set, also keep top-K most-variable RNA genes.
         dual_modality_only: If True, restrict to patients with both modalities.
+        positive_label:     Group label that gets y=1. Default 'H_minus_basal_tn'.
+                            For cohort_v2 use 'LumB' (the higher-proliferation pole).
 
     Returns:
         FeatureMatrices with aligned sample order across rna/meth/y.
@@ -151,9 +155,8 @@ def load_features(
 
     wanted_samples = set(cohort["sample_id"].astype(str))
 
-    print(f"  [features] cohort: {len(cohort)} patients "
-          f"(H+={(cohort['group'] == 'H_plus_luminal').sum()}, "
-          f"H-={(cohort['group'] == 'H_minus_basal_tn').sum()})")
+    group_counts = cohort["group"].value_counts().to_dict()
+    print(f"  [features] cohort: {len(cohort)} patients (groups: {group_counts})")
 
     print(f"  [features] loading RNA-seq from {rna_gz.name} (full load)...")
     rna_df, rna_feats = _load_xena_full(rna_gz, wanted_samples)
@@ -175,9 +178,9 @@ def load_features(
     rna_df = rna_df.loc[common]
     meth_df = meth_df.loc[common]
 
-    # Label vector (0 = H+ luminal, 1 = H- basal/TN).
+    # Label vector: y=1 if group equals positive_label.
     cohort = cohort.set_index("sample_id").loc[common]
-    y = (cohort["group"] == "H_minus_basal_tn").astype(int).to_numpy()
+    y = (cohort["group"] == positive_label).astype(int).to_numpy()
 
     rna_X = rna_df.to_numpy(dtype=np.float32)
     meth_X = meth_df.to_numpy(dtype=np.float32)
