@@ -25,6 +25,13 @@ inputs:
     license: NIH GDC Data Use Agreement (open tier) / UCSC Xena distribution
     source: "TCGA-BRCA clinical phenotype matrix. 1247 rows. ER/PR/HER2 status, PAM50 subtype, OS/PFS."
 
+  - url: https://tcga-xena-hub.s3.us-east-1.amazonaws.com/download/probeMap/illuminaMethyl450_hg19_GPL16304_TCGAlegacy
+    path: tcga_brca/hm450_probemap.tsv
+    sha256: 51dc75b93d186323ea8bc05d917cab79bea8168aed7ddaba16373619b3800ba0
+    size_mb: 19
+    license: NIH GDC Data Use Agreement (open tier) / UCSC Xena distribution
+    source: "HM450 probe-to-gene cis-mapping (Illumina manifest). 395,985 probes, 34,013 unique cis genes. 13.1% intergenic. Used in DMOI Week-2 to build the methylation hypothesis-conditioned attention mask. See audit/hm450_probemap_summary.md."
+
 # DMOI POC subset selection (Week-1 Day-3 actuals):
 #   H+ (luminal):  PAM50 in {LumA, LumB} AND ER positive       -> 547 patients
 #   H- (basal/TN): PAM50 = Basal AND ER/PR/HER2 all negative   -> 103 patients
