@@ -1,44 +1,31 @@
-# Public-data manifest for the capability-portrait demo.
+# DMOI POC data manifest — TCGA-BRCA 2-modality dataset.
 #
-# Every input listed here must be:
-#   - publicly accessible without controlled-access tier auth
-#   - small enough that `make run` finishes in the README's stated budget
-#   - checksum-verified (sha256) so the demo is byte-reproducible
-#
-# Adding an input requires editing this file AND the README's "minimum
-# subset" claim. That friction is intentional (see docs/what-is-out-of-scope.md).
-#
-# Schema:
-#   inputs:
-#     - url:       https://...                # public URL
-#       path:      relative/path/inside/data/ # destination under data/
-#       sha256:    <64-hex>                   # required
-#       size_mb:   <int>                      # informational
-#       license:   <SPDX or text>             # required
-#       source:    <one-line provenance>      # required
+# Source: UCSC Xena Hub (https://xenabrowser.net) — TCGA.BRCA.sampleMap project.
+# Datasets are pre-normalized + matched across modalities at the sample level.
 
 inputs:
-  - url: https://example.org/tiny-fixture.tsv
-    path: fixtures/tiny.tsv
-    sha256: 0000000000000000000000000000000000000000000000000000000000000000
-    size_mb: 1
-    license: CC0-1.0
-    source: "Replace this stub in the derived repo with real public-data URLs."
+  - url: https://tcga-xena-hub.s3.us-east-1.amazonaws.com/download/TCGA.BRCA.sampleMap%2FHiSeqV2.gz
+    path: tcga_brca/HiSeqV2.gz
+    sha256: TBD-after-Day2-download
+    size_mb: 25
+    license: NIH GDC Data Use Agreement (open tier) / UCSC Xena distribution
+    source: "RNA-seq HiSeqV2 Polya+ FPKM, log2(x+1) normalized. ~1100 BRCA samples."
 
-# Per-project examples (uncomment and edit in the derived repo):
-#
-# P3 (tp53-aml-hrd-severity):
-#   - url: https://api.gdc.cancer.gov/data/<file-uuid>
-#     path: tcga-laml/<sample>.vcf.gz
-#     sha256: <hash>
-#     size_mb: 5
-#     license: NIH GDC Data Use Agreement (open tier)
-#     source: TCGA-LAML cohort, GDC Data Portal
-#
-# P1 (healthomics-lab-orchestrator):
-#   - url: https://sra-download.ncbi.nlm.nih.gov/traces/sra<n>/SRR/...
-#     path: rnaseq/SRR1039508_1M.fastq.gz
-#     sha256: <hash>
-#     size_mb: 80
-#     license: Public Domain (SRA)
-#     source: Himes airway smooth muscle (downsampled to 1M reads)
+  - url: https://tcga-xena-hub.s3.us-east-1.amazonaws.com/download/TCGA.BRCA.sampleMap%2FHumanMethylation450.gz
+    path: tcga_brca/HumanMethylation450.gz
+    sha256: TBD-after-Day2-download
+    size_mb: 700
+    license: NIH GDC Data Use Agreement (open tier) / UCSC Xena distribution
+    source: "Illumina HumanMethylation450 beta values. ~785 BRCA samples with HM450 coverage."
+
+  - url: https://tcga-xena-hub.s3.us-east-1.amazonaws.com/download/TCGA.BRCA.sampleMap%2FBRCA_clinicalMatrix
+    path: tcga_brca/BRCA_clinicalMatrix.tsv
+    sha256: TBD-after-Day2-download
+    size_mb: 2
+    license: NIH GDC Data Use Agreement (open tier) / UCSC Xena distribution
+    source: "TCGA-BRCA clinical phenotype matrix. ER/PR/HER2 status, PAM50 subtype, OS/PFS."
+
+# DMOI POC subset selection (Week-1 Day-3):
+#   ER+ luminal A/B  ~700 patients (H+ pole)
+#   Triple-negative basal-like ~200 patients (H- pole)
+#   Both modalities required (RNA-seq + methylation intersection)
