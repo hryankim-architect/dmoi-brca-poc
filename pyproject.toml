@@ -18,6 +18,10 @@ dependencies = [
     "ipykernel>=6.29.0",
     "nbconvert>=7.16.0",
     "jupyter>=1.0.0",
+    "torch>=2.3.0",
+    "numpy>=1.26.0",
+    "pandas>=2.0.0",
+    "scikit-learn>=1.4.0",
 ]
 
 [project.optional-dependencies]
