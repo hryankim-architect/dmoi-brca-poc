@@ -6,26 +6,28 @@
 inputs:
   - url: https://tcga-xena-hub.s3.us-east-1.amazonaws.com/download/TCGA.BRCA.sampleMap%2FHiSeqV2.gz
     path: tcga_brca/HiSeqV2.gz
-    sha256: TBD-after-Day2-download
-    size_mb: 25
+    sha256: 263bf67245cc4b9062676583c0ff0306f08471a26aafd5504037e1da22133746
+    size_mb: 62
     license: NIH GDC Data Use Agreement (open tier) / UCSC Xena distribution
-    source: "RNA-seq HiSeqV2 Polya+ FPKM, log2(x+1) normalized. ~1100 BRCA samples."
+    source: "RNA-seq HiSeqV2 Polya+ FPKM, log2(x+1) normalized. 1218 BRCA samples (observed)."
 
   - url: https://tcga-xena-hub.s3.us-east-1.amazonaws.com/download/TCGA.BRCA.sampleMap%2FHumanMethylation450.gz
     path: tcga_brca/HumanMethylation450.gz
-    sha256: TBD-after-Day2-download
-    size_mb: 700
+    sha256: 9c85616883d3303db5fc14a8deefde89e29a210394d47b5d85b8d151a4c9fb94
+    size_mb: 753
     license: NIH GDC Data Use Agreement (open tier) / UCSC Xena distribution
-    source: "Illumina HumanMethylation450 beta values. ~785 BRCA samples with HM450 coverage."
+    source: "Illumina HumanMethylation450 beta values. 888 BRCA samples (observed)."
 
   - url: https://tcga-xena-hub.s3.us-east-1.amazonaws.com/download/TCGA.BRCA.sampleMap%2FBRCA_clinicalMatrix
     path: tcga_brca/BRCA_clinicalMatrix.tsv
-    sha256: TBD-after-Day2-download
+    sha256: 39eb3be0fb86e6a577bd2cc01502a7fa5a271e1e1cba294e9dc644ad99580d7f
     size_mb: 2
     license: NIH GDC Data Use Agreement (open tier) / UCSC Xena distribution
-    source: "TCGA-BRCA clinical phenotype matrix. ER/PR/HER2 status, PAM50 subtype, OS/PFS."
+    source: "TCGA-BRCA clinical phenotype matrix. 1247 rows. ER/PR/HER2 status, PAM50 subtype, OS/PFS."
 
-# DMOI POC subset selection (Week-1 Day-3):
-#   ER+ luminal A/B  ~700 patients (H+ pole)
-#   Triple-negative basal-like ~200 patients (H- pole)
-#   Both modalities required (RNA-seq + methylation intersection)
+# DMOI POC subset selection (Week-1 Day-3 actuals):
+#   H+ (luminal):  PAM50 in {LumA, LumB} AND ER positive       -> 547 patients
+#   H- (basal/TN): PAM50 = Basal AND ER/PR/HER2 all negative   -> 103 patients
+#   Total cohort: 650 patients
+#   With both modalities (RNA + methylation): 395 patients (DMOI dual-modality training set)
+#   See audit/cohort_summary.md for details; reproduce with: python scripts/build_cohort.py
