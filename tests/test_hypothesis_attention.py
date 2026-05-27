@@ -110,7 +110,11 @@ def test_make_meth_mask_unknown_probe_is_zero(cis_mapping_file: Path):
 
 def test_make_pole_masks_returns_both_poles(cis_mapping_file: Path):
     cis = load_hm450_cis_mapping(cis_mapping_file)
-    genes = ["ESR1", "MKI67", "TP53"]
+    # Use GAPDH (not in any Hallmark set) as the third gene rather than TP53.
+    # TP53 is actually in HALLMARK_E2F_TARGETS (DNA damage response axis),
+    # so picking it as a "nonhallmark" filler gene would inadvertently raise
+    # LumB's mask count by 1.
+    genes = ["ESR1", "MKI67", "GAPDH"]
     probes = ["cg00000001", "cg00000004", "cg00000007"]
     poles = {"LumA": POLE_LUMA, "LumB": POLE_LUMB}
     result = make_pole_masks(genes, probes, cis, poles)
