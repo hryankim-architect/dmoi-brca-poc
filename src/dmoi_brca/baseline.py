@@ -37,8 +37,9 @@ class FoldResult:
 
 def _make_pipeline(model: str, random_state: int) -> Pipeline:
     if model == "logreg":
+        # Note: penalty='l2' is the sklearn default; explicit kwarg dropped to
+        # silence sklearn 1.8+ FutureWarning on penalty deprecation.
         clf = LogisticRegression(
-            penalty="l2",
             C=1.0,
             class_weight="balanced",
             max_iter=2000,
