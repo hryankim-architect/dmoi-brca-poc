@@ -1,5 +1,7 @@
 # `dmoi-brca-poc`
 
+![ci](https://github.com/hryankim-architect/dmoi-brca-poc/actions/workflows/ci.yml/badge.svg) ![english-only](https://github.com/hryankim-architect/dmoi-brca-poc/actions/workflows/english-only.yml/badge.svg)
+
 > **Capability portrait, not a research result.** Public data is intentionally
 > subsetted to keep the demo small and reproducible on a single workstation.
 
