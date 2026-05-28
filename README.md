@@ -15,6 +15,25 @@ probabilities. **v0.2 adds two external generalization tests** — a held-out
 TCGA test split and an independent cohort (METABRIC, RNA-only) — and a clean
 cohort-specific calibration analysis.
 
+## TL;DR — four axes of reusability, all split-invariant
+
+The v0.6 → v0.12-A sequence tests one architectural commitment across four
+orthogonal axes and an adversarial alternative architecture. Every axis holds,
+and the two task axes are sealed as split-invariant under 5-fold CV.
+
+| Axis of reusability | Headline result | Version |
+|---|---|---|
+| Internal same-task (LumA-vs-LumB, TCGA) | val AUROC **0.9702 ± 0.0122** (5-fold) | v0.6 → v0.12-A |
+| Cross-cohort same-task (→ METABRIC) | AUROC **0.9254 ± 0.0052** (5-fold, std = 0.5 pp) | v0.4 → v0.12-A |
+| Cross-task same-cohort (Luminal-vs-Basal, TCGA) | AUROC **1.0000 ± 0.0000** (5-fold) | v0.9 → v0.11 |
+| Cross-cohort + cross-task (→ METABRIC) | AUROC **0.965**, 8/8 expected priors hit | v0.10 |
+| Calibration transfer | ECE **0.138 → 0.077** (cohort-specific T) | v0.1 / v0.2 |
+| Adversarial check | 3-variant experiment **falsified** trainable pathway-attention | v0.7 / v0.8 |
+
+Read this table as: *found → systematically tested → falsified an alternative →
+generalized across cohort, task, and both → sealed under split perturbation on
+every measurable axis.* The dense per-version tables and analysis follow below.
+
 **Reproducibility.** `python scripts/eval_dmoi.py` reproduces the full TCGA
 evaluation in about 2 minutes on an M-series Mac.
 `python scripts/eval_external.py` adds the METABRIC external test
