@@ -130,6 +130,76 @@ def test_run_dmoi_cv_mismatched_shapes_raises():
         )
 
 
+def test_calibration_split_carves_stratified_holdout():
+    """With calibration_frac=0.2, ~20% of train is held out and exposed via cal_*."""
+    rna, meth, y, pole_masks = _synthetic_dataset(n=80, seed=11)
+    half = len(y) // 2
+    result = train_one_fold(
+        rna_train=rna[:half], meth_train=meth[:half], y_train=y[:half],
+        rna_val=rna[half:], meth_val=meth[half:], y_val=y[half:],
+        pole_masks=pole_masks,
+        fold=1,
+        rna_dim=rna.shape[1], meth_dim=meth.shape[1],
+        latent_dim=8, rna_hidden=(16,), meth_hidden=(16,),
+        fuse_hidden=(8,), fuse_out=4, head_hidden=4, dropout=0.0,
+        n_epochs=3, batch_size=8, lr=1e-3, weight_decay=0.0,
+        patience=10, seed=0, device="cpu", verbose=False,
+        calibration_frac=0.2,
+    )
+    n_train = half
+    expected_cal = max(1, int(round(0.2 * (n_train // 2)))) * 2  # both classes
+    assert result.n_cal > 0
+    # Within +/- 2 of the analytic expectation (rounding per class).
+    assert abs(result.n_cal - expected_cal) <= 2
+    assert result.cal_labels is not None
+    assert result.cal_logits is not None
+    assert result.cal_logits.shape == (result.n_cal,)
+    assert result.cal_labels.shape == (result.n_cal,)
+    # Stratification: both classes present in cal split.
+    assert (result.cal_labels == 0).any()
+    assert (result.cal_labels == 1).any()
+    # Training size shrank by the cal holdout.
+    assert result.n_train == n_train - result.n_cal
+
+
+def test_calibration_split_default_is_zero():
+    """Without calibration_frac, cal arrays stay None / n_cal == 0."""
+    rna, meth, y, pole_masks = _synthetic_dataset(n=40)
+    half = len(y) // 2
+    result = train_one_fold(
+        rna_train=rna[:half], meth_train=meth[:half], y_train=y[:half],
+        rna_val=rna[half:], meth_val=meth[half:], y_val=y[half:],
+        pole_masks=pole_masks,
+        fold=1,
+        rna_dim=rna.shape[1], meth_dim=meth.shape[1],
+        latent_dim=8, rna_hidden=(16,), meth_hidden=(16,),
+        fuse_hidden=(8,), fuse_out=4, head_hidden=4, dropout=0.0,
+        n_epochs=2, batch_size=8, lr=1e-3, weight_decay=0.0,
+        patience=10, seed=0, device="cpu", verbose=False,
+    )
+    assert result.n_cal == 0
+    assert result.cal_labels is None
+    assert result.cal_logits is None
+
+
+def test_calibration_split_rejects_invalid_frac():
+    rna, meth, y, pole_masks = _synthetic_dataset(n=40)
+    half = len(y) // 2
+    with pytest.raises(ValueError, match="calibration_frac"):
+        train_one_fold(
+            rna_train=rna[:half], meth_train=meth[:half], y_train=y[:half],
+            rna_val=rna[half:], meth_val=meth[half:], y_val=y[half:],
+            pole_masks=pole_masks,
+            fold=1,
+            rna_dim=rna.shape[1], meth_dim=meth.shape[1],
+            latent_dim=8, rna_hidden=(16,), meth_hidden=(16,),
+            fuse_hidden=(8,), fuse_out=4, head_hidden=4, dropout=0.0,
+            n_epochs=2, batch_size=8, lr=1e-3, weight_decay=0.0,
+            patience=10, seed=0, device="cpu", verbose=False,
+            calibration_frac=0.6,  # too large
+        )
+
+
 def test_signal_recovery_smoke():
     """With strong planted signal, 5-fold CV mean AUROC must beat 0.5."""
     rna, meth, y, pole_masks = _synthetic_dataset(n=80, seed=7)

@@ -61,6 +61,12 @@ class FoldResult:
     val_logits: np.ndarray | None = None  # pre-sigmoid; for Day-5 temperature scaling
     val_disagreement: np.ndarray | None = None
     val_sample_ids: list[str] = field(default_factory=list)
+    # Day-5 additions — nested calibration split (subset of train fold held out
+    # from training and used exclusively for fitting temperature scaling).
+    # Lets us report an honest (non-optimistic) calibrated ECE on val.
+    cal_labels: np.ndarray | None = None
+    cal_logits: np.ndarray | None = None  # logits at best epoch on cal split
+    n_cal: int = 0
 
 
 def _resolve_device(prefer: str = "auto") -> torch.device:
@@ -103,13 +109,47 @@ def train_one_fold(
     verbose: bool = True,
     use_disagreement: bool = True,
     aux_weight: float = 0.0,
+    calibration_frac: float = 0.0,
 ) -> FoldResult:
-    """Train one DMOI model on one fold's data, return per-epoch metrics + best val AUC."""
+    """Train one DMOI model on one fold's data, return per-epoch metrics + best val AUC.
+
+    If `calibration_frac > 0`, that fraction of the train fold is held out
+    (stratified on y) and excluded from training. The model is evaluated on
+    this calibration split at the best epoch and the logits are returned in
+    `cal_logits` / `cal_labels` for downstream temperature scaling.
+    """
     torch.manual_seed(seed)
     np.random.seed(seed)
 
     dev = _resolve_device(device)
     t_start = time.time()
+
+    # Optional: carve a stratified calibration split out of train.
+    # Standardization happens AFTER this split so the scaler is fit only
+    # on data the model actually trains on.
+    cal_idx_local: np.ndarray | None = None
+    if calibration_frac > 0:
+        if not 0.0 < calibration_frac < 0.5:
+            raise ValueError(
+                f"calibration_frac must be in (0, 0.5), got {calibration_frac}",
+            )
+        rng = np.random.default_rng(seed + 1_000 + fold)
+        n = len(y_train)
+        # Stratified split: hold out `calibration_frac` of each class.
+        cal_mask = np.zeros(n, dtype=bool)
+        for class_value in (0, 1):
+            class_idx = np.where(y_train == class_value)[0]
+            n_hold = max(1, int(round(len(class_idx) * calibration_frac)))
+            chosen = rng.choice(class_idx, size=n_hold, replace=False)
+            cal_mask[chosen] = True
+        cal_idx_local = np.where(cal_mask)[0]
+        train_idx_local = np.where(~cal_mask)[0]
+        rna_cal_raw = rna_train[cal_idx_local]
+        meth_cal_raw = meth_train[cal_idx_local]
+        y_cal = y_train[cal_idx_local]
+        rna_train = rna_train[train_idx_local]
+        meth_train = meth_train[train_idx_local]
+        y_train = y_train[train_idx_local]
 
     # Standardize using train fold stats only.
     rna_scaler = StandardScaler().fit(rna_train)
@@ -125,6 +165,15 @@ def train_one_fold(
     y_tr_t = torch.from_numpy(y_train.astype(np.float32)).to(dev)
     X_rna_va = torch.from_numpy(rna_va).to(dev)
     X_meth_va = torch.from_numpy(meth_va).to(dev)
+
+    # Calibration split tensors (if requested).
+    X_rna_cal: torch.Tensor | None = None
+    X_meth_cal: torch.Tensor | None = None
+    if cal_idx_local is not None:
+        rna_ca = rna_scaler.transform(rna_cal_raw).astype(np.float32)
+        meth_ca = meth_scaler.transform(meth_cal_raw).astype(np.float32)
+        X_rna_cal = torch.from_numpy(rna_ca).to(dev)
+        X_meth_cal = torch.from_numpy(meth_ca).to(dev)
 
     # Class-balanced positive weight (LumB pos = label 1).
     n_pos = int(y_train.sum())
@@ -152,6 +201,7 @@ def train_one_fold(
     best_val_proba: np.ndarray | None = None
     best_val_logits: np.ndarray | None = None
     best_val_disagreement: np.ndarray | None = None
+    best_cal_logits: np.ndarray | None = None
     patience_left = patience
     train_loss_curve: list[float] = []
     val_auc_curve: list[float] = []
@@ -196,6 +246,10 @@ def train_one_fold(
             val_logits_np = val_out["logits"].detach().cpu().numpy()
             val_proba = torch.sigmoid(val_out["logits"]).detach().cpu().numpy()
             val_disagreement = val_out["disagreement"].detach().cpu().numpy()
+            cal_logits_np: np.ndarray | None = None
+            if X_rna_cal is not None and X_meth_cal is not None:
+                cal_out = model(X_rna_cal, X_meth_cal)
+                cal_logits_np = cal_out["logits"].detach().cpu().numpy()
         val_auc = float(roc_auc_score(y_val, val_proba))
         val_pred = (val_proba >= 0.5).astype(int)
         val_bacc = float(balanced_accuracy_score(y_val, val_pred))
@@ -215,6 +269,8 @@ def train_one_fold(
             best_val_proba = val_proba.copy()
             best_val_logits = val_logits_np.copy()
             best_val_disagreement = val_disagreement.copy()
+            if cal_logits_np is not None:
+                best_cal_logits = cal_logits_np.copy()
             patience_left = patience
         else:
             patience_left -= 1
@@ -230,6 +286,10 @@ def train_one_fold(
         model.load_state_dict(best_state)
 
     runtime = time.time() - t_start
+    cal_labels_out: np.ndarray | None = (
+        y_cal.astype(np.int64).copy() if cal_idx_local is not None else None
+    )
+    n_cal_out = int(len(y_cal)) if cal_idx_local is not None else 0
     return FoldResult(
         fold=fold,
         best_val_auc=best_val_auc,
@@ -247,6 +307,9 @@ def train_one_fold(
         val_proba=best_val_proba,
         val_logits=best_val_logits,
         val_disagreement=best_val_disagreement,
+        cal_labels=cal_labels_out,
+        cal_logits=best_cal_logits,
+        n_cal=n_cal_out,
     )
 
 

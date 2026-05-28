@@ -15,7 +15,6 @@ Skip the scan for a file by listing it in scripts/english-only.skip
 from __future__ import annotations
 
 import os
-import re
 import sys
 from pathlib import Path
 

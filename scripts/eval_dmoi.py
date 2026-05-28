@@ -98,11 +98,15 @@ def main() -> int:
     )
 
     # --- Option A: aux BCE supervision on sub-classifiers + disagreement IN ---
+    # calibration_frac=0.15: hold out 15% of each train fold (stratified on y)
+    # to fit temperature on, so the calibrated-ECE we report on val is honest
+    # (not optimistic). Optimistic T-on-val is still computed below for the
+    # upper-bound comparison.
     print("\n--- Run 1/3: Option A (aux BCE on sub-clf + disagreement IN) ---")
     optionA_results = run_dmoi_cv(
         rna=feats.rna, meth=feats.meth, y=feats.y,
         pole_masks=pole_masks, use_disagreement=True,
-        aux_weight=0.3, **COMMON_KWARGS,
+        aux_weight=0.3, calibration_frac=0.15, **COMMON_KWARGS,
     )
     optionA_agg_train = aggregate_fold_results(optionA_results)
 
@@ -192,6 +196,55 @@ def main() -> int:
     mean_ece_cal = float(valid_cal_eces.mean()) if len(valid_cal_eces) > 0 else float("nan")
     ece_reduction = mean_ece_uncal - mean_ece_cal
 
+    # --- Nested temperature scaling: T fit on held-out calibration split ---
+    # Option A was trained with calibration_frac=0.15, so each fold has a
+    # cal_logits/cal_labels pair that the model never trained on. Fit T on
+    # those, then apply to val_logits and recompute ECE on val. This is the
+    # honest, non-optimistic number.
+    print("\n--- Nested temperature scaling (Option A, T fit on held-out cal split) ---")
+    nested_fits: list = []
+    nested_eces_cal: list[float] = []
+    for r in optionA_results:
+        if (
+            r.cal_logits is None or r.cal_labels is None
+            or r.val_logits is None or r.val_labels is None
+        ):
+            sys.stderr.write(
+                f"WARN: fold {r.fold} missing nested cal arrays; "
+                "skipping nested calibration\n",
+            )
+            nested_fits.append(None)
+            nested_eces_cal.append(float("nan"))
+            continue
+        from dmoi_brca.calibration import apply_temperature, fit_temperature  # noqa: PLC0415
+        fit = fit_temperature(r.cal_logits, r.cal_labels)
+        cal_val_proba = apply_temperature(r.val_logits, fit.temperature)
+        rep = compute_calibration(r.val_labels, cal_val_proba, n_bins=10)
+        nested_fits.append(fit)
+        nested_eces_cal.append(float(rep.ece))
+        print(
+            f"  fold {r.fold}: n_cal={r.n_cal}  T_nested={fit.temperature:.3f}  "
+            f"ECE_val_nested_cal={rep.ece:.4f}",
+        )
+    valid_nested_fits = [f for f in nested_fits if f is not None]
+    valid_nested_eces = np.array(
+        [e for e in nested_eces_cal if not np.isnan(e)],
+    )
+    mean_T_nested = (
+        float(np.mean([f.temperature for f in valid_nested_fits]))
+        if valid_nested_fits
+        else float("nan")
+    )
+    std_T_nested = (
+        float(np.std([f.temperature for f in valid_nested_fits], ddof=1))
+        if len(valid_nested_fits) > 1
+        else 0.0
+    )
+    mean_ece_nested = (
+        float(valid_nested_eces.mean()) if len(valid_nested_eces) > 0 else float("nan")
+    )
+    nested_reduction = mean_ece_uncal - mean_ece_nested
+
     # --- Per-fold TSV (3-way: Option A / Option B / Ablation) ---
     AUDIT.mkdir(exist_ok=True)
     per_fold = AUDIT / "dmoi_eval_per_fold.tsv"
@@ -199,14 +252,18 @@ def main() -> int:
         f.write(
             "fold\tauc_A\tauc_B\tauc_ablation\tbacc_A\tbacc_B\tbacc_ablation\t"
             "f1_lumA_optA\tf1_lumB_optA\tece_optA\ttemperature_optA\tece_cal_optA\t"
+            "temperature_nested\tece_cal_nested\t"
             "dis_auc_optA\tdis_r_optA\tdis_p_optA\tn_test\tn_pos_test\n",
         )
-        for a_r, b_r, abl_r, eb, fit, ece_cal in zip(
+        for a_r, b_r, abl_r, eb, fit, ece_cal, nfit, ece_nest in zip(
             optionA_results, optionB_results, ablation_results, bundles,
-            calib_fits, calibrated_eces, strict=True,
+            calib_fits, calibrated_eces, nested_fits, nested_eces_cal,
+            strict=True,
         ):
             T_str = f"{fit.temperature:.4f}" if fit is not None else "nan"
             ece_cal_str = f"{ece_cal:.4f}" if not np.isnan(ece_cal) else "nan"
+            T_nest_str = f"{nfit.temperature:.4f}" if nfit is not None else "nan"
+            ece_nest_str = f"{ece_nest:.4f}" if not np.isnan(ece_nest) else "nan"
             f.write(
                 f"{eb.fold}\t{a_r.best_val_auc:.4f}\t{b_r.best_val_auc:.4f}\t"
                 f"{abl_r.best_val_auc:.4f}\t"
@@ -214,6 +271,7 @@ def main() -> int:
                 f"{abl_r.best_val_bacc:.4f}\t"
                 f"{eb.per_class['LumA'].f1:.4f}\t{eb.per_class['LumB'].f1:.4f}\t"
                 f"{eb.calibration.ece:.4f}\t{T_str}\t{ece_cal_str}\t"
+                f"{T_nest_str}\t{ece_nest_str}\t"
                 f"{eb.disagreement_report.auc_dis_predicts_misclass:.4f}\t"
                 f"{eb.disagreement_report.point_biserial_r:.4f}\t"
                 f"{eb.disagreement_report.point_biserial_p:.4f}\t"
@@ -335,6 +393,25 @@ def main() -> int:
         f"{[f'{e:.4f}' if not np.isnan(e) else 'nan' for e in calibrated_eces]}\n"
         f"- **Mean ECE before → after** : **{mean_ece_uncal:.4f} → {mean_ece_cal:.4f}**\n"
         f"- **Δ ECE (improvement)** : **{ece_reduction:+.4f}**\n\n"
+        "## Temperature scaling calibration — nested split (Option A, honest)\n\n"
+        "Each fold also held out 15% of its train data (stratified on y) as a\n"
+        "calibration split that the model never trained on. T is fit on those\n"
+        "cal logits and applied to val. This is the **honest** number — no\n"
+        "double-dipping between fit and evaluation.\n\n"
+        f"- Cal split fraction : **15%** of each train fold (stratified)\n"
+        f"- Mean T (nested) : **{mean_T_nested:.3f} ± {std_T_nested:.3f}**\n"
+        f"- Per-fold T (nested) : "
+        f"{[f'{f.temperature:.3f}' if f is not None else 'nan' for f in nested_fits]}\n"
+        f"- Per-fold ECE on val (T fit on cal split) : "
+        f"{[f'{e:.4f}' if not np.isnan(e) else 'nan' for e in nested_eces_cal]}\n"
+        f"- **Mean ECE before → after (nested)** : "
+        f"**{mean_ece_uncal:.4f} → {mean_ece_nested:.4f}**\n"
+        f"- **Δ ECE (honest improvement)** : **{nested_reduction:+.4f}**\n\n"
+        "Comparison:\n\n"
+        "| T fit on | Mean T | Mean ECE on val | Notes |\n"
+        "|---|---|---|---|\n"
+        f"| val (optimistic) | {mean_T:.3f} | {mean_ece_cal:.4f} | upper bound — T tuned to the same fold |\n"
+        f"| held-out cal split (honest) | {mean_T_nested:.3f} | {mean_ece_nested:.4f} | what generalizes |\n\n"
         "## Pooled OOF confusion matrix (all 5 folds concatenated)\n\n"
         f"|       | pred LumA | pred LumB |\n"
         f"|-------|-----------|-----------|\n"
@@ -364,6 +441,10 @@ def main() -> int:
     print(f"  F1 LumB (minority) : {eval_agg['f1_LumB_mean']:.4f} ± "
           f"{eval_agg['f1_LumB_std']:.4f}")
     print(f"  ECE : {eval_agg['ece_mean']:.4f} ± {eval_agg['ece_std']:.4f}")
+    print(f"  T (optimistic, val-fit) : {mean_T:.3f} ± {std_T:.3f}  "
+          f"-> ECE val {mean_ece_cal:.4f}")
+    print(f"  T (nested, cal-split-fit) : {mean_T_nested:.3f} ± {std_T_nested:.3f}  "
+          f"-> ECE val {mean_ece_nested:.4f}")
     print(f"  Disagreement AUC for misclass : "
           f"{eval_agg['auc_dis_predicts_misclass_mean']:.4f}")
     print(f"  Informative-disagreement folds : {n_info_folds}/{len(bundles)}")
