@@ -29,6 +29,7 @@ from dmoi_brca.cohort import (  # noqa: E402
     build_cohort,
     load_clinical,
     read_sample_ids_from_xena,
+    train_test_split_cohort,
 )
 
 REPO = Path(__file__).resolve().parents[1]
@@ -65,6 +66,18 @@ def main() -> int:
         label_a="LumA", label_b="LumB",
     )
 
+    print("Adding stratified 80/20 train/test split on dual-modality patients...")
+    cohort = train_test_split_cohort(
+        cohort, test_frac=0.2, random_state=2024,
+        stratify_col="group", dual_modality_only=True,
+    )
+    n_train = int((cohort["split"] == "train").sum())
+    n_test = int((cohort["split"] == "test").sum())
+    n_train_lumA = int(((cohort["split"] == "train") & (cohort["group"] == "LumA")).sum())
+    n_train_lumB = int(((cohort["split"] == "train") & (cohort["group"] == "LumB")).sum())
+    n_test_lumA = int(((cohort["split"] == "test") & (cohort["group"] == "LumA")).sum())
+    n_test_lumB = int(((cohort["split"] == "test") & (cohort["group"] == "LumB")).sum())
+
     out = DATA / "cohort_v2.tsv"
     cohort.to_csv(out, sep="\t", index=False)
     print(f"\nWrote {out} ({len(cohort)} rows)")
@@ -73,6 +86,8 @@ def main() -> int:
     print(f"  both modalities:   {summary.n_both_modalities}")
     print(f"  RNA-only:          {summary.n_rna_only}")
     print(f"  meth-only:         {summary.n_meth_only}")
+    print(f"  train split:       {n_train} (LumA={n_train_lumA}, LumB={n_train_lumB})")
+    print(f"  test  split:       {n_test} (LumA={n_test_lumA}, LumB={n_test_lumB})")
 
     AUDIT.mkdir(exist_ok=True)
     summary_md = AUDIT / "cohort_v2_summary.md"
@@ -102,6 +117,16 @@ def main() -> int:
         f"(DMOI dual-modality v2 training set)\n"
         f"- RNA only: {summary.n_rna_only}\n"
         f"- Methylation only: {summary.n_meth_only}\n\n"
+        "## Train / test split (v0.2)\n\n"
+        "Stratified 80/20 holdout on dual-modality patients, "
+        "random_state=2024 (distinct from the CV seed 42). The test split is\n"
+        "carved at cohort-construction time and only scored once at the end of\n"
+        "each evaluation run — no model selection, no early stopping, no\n"
+        "calibration fitting against it.\n\n"
+        "| Split | LumA | LumB | Total |\n"
+        "|---|---|---|---|\n"
+        f"| train | {n_train_lumA} | {n_train_lumB} | {n_train} |\n"
+        f"| test  | {n_test_lumA} | {n_test_lumB} | {n_test} |\n\n"
         "## Reproduce\n\n"
         "```bash\n"
         "python scripts/build_cohort_v2.py\n"

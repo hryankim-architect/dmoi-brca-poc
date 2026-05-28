@@ -110,6 +110,7 @@ def train_one_fold(
     use_disagreement: bool = True,
     aux_weight: float = 0.0,
     calibration_frac: float = 0.0,
+    pick_best_epoch: bool = True,
 ) -> FoldResult:
     """Train one DMOI model on one fold's data, return per-epoch metrics + best val AUC.
 
@@ -117,6 +118,12 @@ def train_one_fold(
     (stratified on y) and excluded from training. The model is evaluated on
     this calibration split at the best epoch and the logits are returned in
     `cal_logits` / `cal_labels` for downstream temperature scaling.
+
+    If `pick_best_epoch=False`, the model trains for the full `n_epochs` with
+    no early stopping and no best-epoch selection — the returned `val_*`
+    arrays come from the FINAL epoch, not the val-AUC-maximizing one. Use
+    this when val is actually a held-out test split that must not leak into
+    model selection (e.g., for the v0.2 TCGA 80/20 held-out scoring).
     """
     torch.manual_seed(seed)
     np.random.seed(seed)
@@ -261,7 +268,21 @@ def train_one_fold(
                   f"train_loss={mean_loss:.4f}  val_auc={val_auc:.4f}  val_bacc={val_bacc:.4f}",
                   flush=True)
 
-        if val_auc > best_val_auc:
+        if not pick_best_epoch:
+            # No peeking at val for best-epoch selection — use the latest
+            # epoch's predictions unconditionally. This mode is for held-out
+            # test scoring where val == test and any val-driven selection
+            # would leak.
+            best_val_auc = val_auc
+            best_val_bacc = val_bacc
+            best_epoch = epoch
+            best_state = copy.deepcopy(model.state_dict())
+            best_val_proba = val_proba.copy()
+            best_val_logits = val_logits_np.copy()
+            best_val_disagreement = val_disagreement.copy()
+            if cal_logits_np is not None:
+                best_cal_logits = cal_logits_np.copy()
+        elif val_auc > best_val_auc:
             best_val_auc = val_auc
             best_val_bacc = val_bacc
             best_epoch = epoch

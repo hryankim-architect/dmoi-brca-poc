@@ -35,7 +35,7 @@ from dmoi_brca.eval import (  # noqa: E402
     concat_fold_predictions,
     confusion_matrix_table,
 )
-from dmoi_brca.features import load_features  # noqa: E402
+from dmoi_brca.features import FeatureMatrices, load_features  # noqa: E402
 from dmoi_brca.hypothesis_attention import (  # noqa: E402
     load_hm450_cis_mapping,
     make_pole_masks,
@@ -81,14 +81,53 @@ def main() -> int:
             return 1
 
     print("=== Day-4: DMOI full evaluation + ablation ===")
-    print("\n--- Loading features ---")
-    feats = load_features(
+    print("\n--- Loading features (full cohort, will slice by split) ---")
+    feats_all = load_features(
         cohort_tsv=cohort_tsv, rna_gz=rna_gz, meth_gz=meth_gz,
         meth_topk=10_000, dual_modality_only=True, positive_label="LumB",
     )
+    # Slice into train/test using the cohort TSV's split column. Loading the
+    # full cohort once means train and test share the SAME top-K methylation
+    # probe selection (the alternative — loading each split separately —
+    # would pick different probes per split and break the model).
+    import pandas as pd  # noqa: PLC0415
+    cohort_df = pd.read_csv(cohort_tsv, sep="\t")
+    cohort_df = cohort_df[cohort_df["has_rna"] & cohort_df["has_meth"]].copy()
+    if "split" not in cohort_df.columns:
+        sys.stderr.write(
+            "ERROR: cohort_v2.tsv missing `split` column. "
+            "Regenerate via `python scripts/build_cohort_v2.py` to add the 80/20 split.\n",
+        )
+        return 1
+    sample_to_split = dict(zip(cohort_df["sample_id"], cohort_df["split"], strict=False))
+    train_idx = np.array([
+        i for i, sid in enumerate(feats_all.sample_ids)
+        if sample_to_split.get(sid) == "train"
+    ])
+    test_idx = np.array([
+        i for i, sid in enumerate(feats_all.sample_ids)
+        if sample_to_split.get(sid) == "test"
+    ])
+
+    def _slice(idx: np.ndarray) -> FeatureMatrices:
+        return FeatureMatrices(
+            sample_ids=[feats_all.sample_ids[i] for i in idx],
+            y=feats_all.y[idx],
+            rna=feats_all.rna[idx],
+            meth=feats_all.meth[idx],
+            rna_features=feats_all.rna_features,
+            meth_features=feats_all.meth_features,
+        )
+
+    feats = _slice(train_idx)
+    feats_test = _slice(test_idx)
     n = len(feats.sample_ids)
-    print(f"  Cohort v2 dual-modality: {n} patients "
+    n_test = len(feats_test.sample_ids)
+    print(f"  Cohort v2 train split: {n} patients "
           f"(LumA={int((feats.y == 0).sum())}, LumB={int((feats.y == 1).sum())})")
+    print(f"  Cohort v2 test  split: {n_test} patients "
+          f"(LumA={int((feats_test.y == 0).sum())}, "
+          f"LumB={int((feats_test.y == 1).sum())})")
 
     print("\n--- Building pole masks ---")
     cis = load_hm450_cis_mapping(probemap)
@@ -244,6 +283,59 @@ def main() -> int:
         float(valid_nested_eces.mean()) if len(valid_nested_eces) > 0 else float("nan")
     )
     nested_reduction = mean_ece_uncal - mean_ece_nested
+
+    # --- Held-out TCGA test scoring (v0.2 Path C) ---
+    # Train one Option A model on the FULL train split (no CV) for the mean
+    # CV best epoch, score the test split exactly once. patience > n_epochs
+    # disables early stopping, and pick_best_epoch=False stops the loop from
+    # selecting the val-AUC-maximizing epoch (val == test here would leak).
+    print("\n--- Held-out test scoring (TCGA 80/20) ---")
+    mean_best_epoch = int(round(np.mean([r.best_epoch for r in optionA_results])))
+    print(f"  Training final Option A on full train split for "
+          f"{mean_best_epoch} epochs (CV mean best_epoch); no early stop, no peek.")
+    from dmoi_brca.train import train_one_fold  # noqa: PLC0415
+
+    test_result = train_one_fold(
+        rna_train=feats.rna, meth_train=feats.meth, y_train=feats.y,
+        rna_val=feats_test.rna, meth_val=feats_test.meth, y_val=feats_test.y,
+        pole_masks=pole_masks,
+        fold=0,
+        rna_dim=feats.rna.shape[1], meth_dim=feats.meth.shape[1],
+        latent_dim=128, rna_hidden=(1024, 256), meth_hidden=(512,),
+        fuse_hidden=(128,), fuse_out=64, head_hidden=32,
+        dropout=0.3, n_epochs=mean_best_epoch, batch_size=64,
+        lr=1e-4, weight_decay=1e-4,
+        patience=mean_best_epoch + 1,  # disable early stopping
+        seed=42, device="auto", verbose=False,
+        use_disagreement=True, aux_weight=0.3,
+        calibration_frac=0.15,
+        pick_best_epoch=False,  # no peek at test for best-epoch selection
+    )
+    print(f"  Test AUROC : {test_result.best_val_auc:.4f}")
+    print(f"  Test BalAcc: {test_result.best_val_bacc:.4f}")
+
+    test_labels = test_result.val_labels
+    test_proba = test_result.val_proba
+    test_logits = test_result.val_logits
+    test_ece_uncal = compute_calibration(test_labels, test_proba, n_bins=10).ece
+
+    # Apply T fit on the cal-split inside the final training to test logits.
+    from dmoi_brca.calibration import apply_temperature, fit_temperature  # noqa: PLC0415
+
+    test_T_used = float("nan")
+    test_ece_cal = float("nan")
+    if test_result.cal_logits is not None and test_result.cal_labels is not None:
+        test_fit = fit_temperature(test_result.cal_logits, test_result.cal_labels)
+        test_T_used = test_fit.temperature
+        test_proba_cal = apply_temperature(test_logits, test_T_used)
+        test_ece_cal = compute_calibration(test_labels, test_proba_cal, n_bins=10).ece
+        print(f"  Test T (cal-split, n_cal={test_result.n_cal}) : {test_T_used:.3f}")
+        print(f"  Test ECE before -> after : {test_ece_uncal:.4f} -> {test_ece_cal:.4f}")
+    else:
+        print("  WARN: no cal split returned; skipping test calibration.")
+
+    test_pred = (test_proba >= 0.5).astype(np.int64)
+    test_cm = confusion_matrix_table(test_labels, test_pred)
 
     # --- Per-fold TSV (3-way: Option A / Option B / Ablation) ---
     AUDIT.mkdir(exist_ok=True)
@@ -412,6 +504,29 @@ def main() -> int:
         "|---|---|---|---|\n"
         f"| val (optimistic) | {mean_T:.3f} | {mean_ece_cal:.4f} | upper bound — T tuned to the same fold |\n"
         f"| held-out cal split (honest) | {mean_T_nested:.3f} | {mean_ece_nested:.4f} | what generalizes |\n\n"
+        "## Held-out TCGA test (v0.2 Path C, 80/20 split)\n\n"
+        f"A {n_test}-patient stratified test split was carved at cohort "
+        "construction time with random_state=2024 (distinct from the CV "
+        f"seed). It is scored **once** by a single Option A model trained on "
+        f"the full train split ({n} patients) for "
+        f"{mean_best_epoch} epochs (CV mean best epoch; no early stopping; "
+        "`pick_best_epoch=False` so val/test AUC does not select an epoch).\n\n"
+        f"- **Test AUROC** : **{test_result.best_val_auc:.4f}** "
+        f"(internal CV mean: {optionA_agg_train['auc_mean']:.4f})\n"
+        f"- **Test BalAcc**: {test_result.best_val_bacc:.4f}\n"
+        f"- **Test ECE before T-scaling** : {test_ece_uncal:.4f}\n"
+        f"- **Test ECE after T-scaling**  : {test_ece_cal:.4f}  "
+        f"(T={test_T_used:.3f} fit on a 15% cal split of train)\n\n"
+        "| | pred LumA | pred LumB |\n"
+        "|---|---|---|\n"
+        f"| true LumA | {test_cm['tn']} | {test_cm['fp']} |\n"
+        f"| true LumB | {test_cm['fn']} | {test_cm['tp']} |\n\n"
+        f"Test accuracy: "
+        f"{(test_cm['tn'] + test_cm['tp']) / max(sum(test_cm.values()), 1):.4f}  "
+        f"·  LumB sensitivity: "
+        f"{test_cm['tp'] / max(test_cm['tp'] + test_cm['fn'], 1):.4f}  "
+        f"·  LumB specificity: "
+        f"{test_cm['tn'] / max(test_cm['tn'] + test_cm['fp'], 1):.4f}\n\n"
         "## Pooled OOF confusion matrix (all 5 folds concatenated)\n\n"
         f"|       | pred LumA | pred LumB |\n"
         f"|-------|-----------|-----------|\n"
@@ -448,6 +563,13 @@ def main() -> int:
     print(f"  Disagreement AUC for misclass : "
           f"{eval_agg['auc_dis_predicts_misclass_mean']:.4f}")
     print(f"  Informative-disagreement folds : {n_info_folds}/{len(bundles)}")
+    print(f"\n  === Held-out TCGA test (n={n_test}) ===")
+    print(f"  Test AUROC : {test_result.best_val_auc:.4f}  "
+          f"(internal CV mean: {optionA_agg_train['auc_mean']:.4f}, "
+          f"Δ = {test_result.best_val_auc - optionA_agg_train['auc_mean']:+.4f})")
+    print(f"  Test BalAcc: {test_result.best_val_bacc:.4f}")
+    print(f"  Test ECE   : {test_ece_uncal:.4f} -> {test_ece_cal:.4f} "
+          f"(T={test_T_used:.3f})")
     return 0
 
 

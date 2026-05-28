@@ -131,6 +131,7 @@ def load_features(
     rna_topk: int | None = None,
     dual_modality_only: bool = True,
     positive_label: str = "H_minus_basal_tn",
+    split: str | None = None,
 ) -> FeatureMatrices:
     """Load aligned (X_rna, X_meth, y) for the cohort.
 
@@ -143,6 +144,10 @@ def load_features(
         dual_modality_only: If True, restrict to patients with both modalities.
         positive_label:     Group label that gets y=1. Default 'H_minus_basal_tn'.
                             For cohort_v2 use 'LumB' (the higher-proliferation pole).
+        split:              If set to 'train' or 'test', restrict to patients
+                            in that split (requires a `split` column on the
+                            cohort TSV; see `train_test_split_cohort`). Default
+                            None = no split filter.
 
     Returns:
         FeatureMatrices with aligned sample order across rna/meth/y.
@@ -150,8 +155,16 @@ def load_features(
     cohort = pd.read_csv(cohort_tsv, sep="\t")
     if dual_modality_only:
         cohort = cohort[cohort["has_rna"] & cohort["has_meth"]].copy()
+    if split is not None:
+        if "split" not in cohort.columns:
+            raise ValueError(
+                f"split={split!r} requested but `split` column missing in {cohort_tsv}. "
+                "Regenerate the cohort with build_cohort_v2.py to add the train/test split.",
+            )
+        cohort = cohort[cohort["split"] == split].copy()
     if cohort.empty:
-        raise ValueError(f"Empty cohort after dual-modality filter in {cohort_tsv}")
+        suffix = f" + split={split!r}" if split is not None else ""
+        raise ValueError(f"Empty cohort after dual-modality filter{suffix} in {cohort_tsv}")
 
     wanted_samples = set(cohort["sample_id"].astype(str))
 

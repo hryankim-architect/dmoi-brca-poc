@@ -163,3 +163,72 @@ def read_sample_ids_from_xena(gz_path: Path) -> set[str]:
     with gzip.open(gz_path, "rt") as fh:
         header = fh.readline().rstrip("\n").split("\t")
     return set(header[1:])  # first column is gene/probe id
+
+
+def train_test_split_cohort(
+    cohort: pd.DataFrame,
+    *,
+    test_frac: float = 0.2,
+    random_state: int = 2024,
+    stratify_col: str = "group",
+    dual_modality_only: bool = True,
+) -> pd.DataFrame:
+    """Add a stratified `split` column to the cohort (train / test).
+
+    Only patients that pass the dual-modality filter are eligible for the
+    split — single-modality patients get split="" (excluded from both train
+    and test).
+
+    The random_state is intentionally distinct from the CV seed used in
+    `dmoi_brca.train.run_dmoi_cv` (random_state=42) so the cohort-level
+    train/test split is not entangled with the CV fold assignments.
+
+    Args:
+        cohort:             Cohort DataFrame with sample_id, group, has_rna,
+                            has_meth columns.
+        test_frac:          Fraction of dual-modality patients to assign
+                            to test. Must be in (0, 1).
+        random_state:       Seed for reproducible split.
+        stratify_col:       Column to stratify on (default 'group').
+        dual_modality_only: If True, only assign split values to patients
+                            with both modalities; otherwise to all rows.
+
+    Returns:
+        Copy of `cohort` with an added `split` column in
+        {"train", "test", ""} where "" means excluded from both.
+    """
+    if not 0.0 < test_frac < 1.0:
+        raise ValueError(f"test_frac must be in (0, 1), got {test_frac}")
+    if stratify_col not in cohort.columns:
+        raise ValueError(f"stratify_col '{stratify_col}' not in cohort columns")
+
+    result = cohort.copy()
+    result["split"] = ""
+
+    if dual_modality_only:
+        eligible_mask = result["has_rna"] & result["has_meth"]
+    else:
+        eligible_mask = pd.Series([True] * len(result), index=result.index)
+
+    eligible = result[eligible_mask]
+    if eligible.empty:
+        raise ValueError(
+            "No eligible patients for train/test split "
+            "(dual_modality_only filter removed everyone)",
+        )
+
+    # Per-class stratified hold-out: from each class, take round(n * test_frac)
+    # for test and the rest for train. The per-class seed mixes the class value
+    # so changing the class label set doesn't shuffle the existing split.
+    test_indices: list = []
+    train_indices: list = []
+    for class_value, group_df in eligible.groupby(stratify_col, sort=True):
+        n_test = max(1, int(round(len(group_df) * test_frac)))
+        class_seed = random_state + hash(str(class_value)) % 10_000
+        shuffled = group_df.sample(frac=1.0, random_state=class_seed)
+        test_indices.extend(shuffled.index[:n_test])
+        train_indices.extend(shuffled.index[n_test:])
+
+    result.loc[test_indices, "split"] = "test"
+    result.loc[train_indices, "split"] = "train"
+    return result

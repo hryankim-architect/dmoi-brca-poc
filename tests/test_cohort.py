@@ -11,6 +11,7 @@ from dmoi_brca.cohort import (
     assign_lumab_group,
     build_cohort,
     normalize_pam50,
+    train_test_split_cohort,
 )
 
 
@@ -155,3 +156,93 @@ def test_build_cohort_with_lumab_assigner():
     assert summary.n_luminal_h_plus == 1  # label_a count
     assert summary.n_basal_h_minus == 1   # label_b count
     assert summary.n_both_modalities == 1  # P2
+
+
+# ---------------------------------------------------------------------------
+# train_test_split_cohort
+# ---------------------------------------------------------------------------
+
+
+def _make_dual_modality_cohort(n_lumA: int = 40, n_lumB: int = 20) -> pd.DataFrame:
+    rows = []
+    for i in range(n_lumA):
+        rows.append({
+            "sample_id": f"A{i:03d}", "group": "LumA",
+            "has_rna": True, "has_meth": True,
+        })
+    for i in range(n_lumB):
+        rows.append({
+            "sample_id": f"B{i:03d}", "group": "LumB",
+            "has_rna": True, "has_meth": True,
+        })
+    return pd.DataFrame(rows)
+
+
+def test_train_test_split_adds_split_column():
+    cohort = _make_dual_modality_cohort()
+    result = train_test_split_cohort(cohort, test_frac=0.2, random_state=2024)
+    assert "split" in result.columns
+    assert set(result["split"].unique()) == {"train", "test"}
+
+
+def test_train_test_split_respects_test_frac():
+    cohort = _make_dual_modality_cohort(n_lumA=40, n_lumB=20)
+    result = train_test_split_cohort(cohort, test_frac=0.2, random_state=2024)
+    n_test = (result["split"] == "test").sum()
+    n_train = (result["split"] == "train").sum()
+    # 20% of 40 = 8, 20% of 20 = 4 → total 12 test, 48 train
+    assert n_test == 12
+    assert n_train == 48
+
+
+def test_train_test_split_stratifies():
+    cohort = _make_dual_modality_cohort(n_lumA=40, n_lumB=20)
+    result = train_test_split_cohort(cohort, test_frac=0.2, random_state=2024)
+    test_lumA = ((result["split"] == "test") & (result["group"] == "LumA")).sum()
+    test_lumB = ((result["split"] == "test") & (result["group"] == "LumB")).sum()
+    # Both classes represented in test
+    assert test_lumA == 8
+    assert test_lumB == 4
+
+
+def test_train_test_split_deterministic():
+    cohort = _make_dual_modality_cohort()
+    r1 = train_test_split_cohort(cohort, test_frac=0.2, random_state=2024)
+    r2 = train_test_split_cohort(cohort, test_frac=0.2, random_state=2024)
+    assert (r1["split"] == r2["split"]).all()
+
+
+def test_train_test_split_different_seed_produces_different_assignment():
+    cohort = _make_dual_modality_cohort()
+    r1 = train_test_split_cohort(cohort, test_frac=0.2, random_state=2024)
+    r2 = train_test_split_cohort(cohort, test_frac=0.2, random_state=42)
+    # At least one assignment differs
+    assert not (r1["split"] == r2["split"]).all()
+
+
+def test_train_test_split_single_modality_patients_excluded():
+    cohort = pd.DataFrame([
+        {"sample_id": "A1", "group": "LumA", "has_rna": True, "has_meth": True},
+        {"sample_id": "A2", "group": "LumA", "has_rna": True, "has_meth": True},
+        {"sample_id": "A3", "group": "LumA", "has_rna": True, "has_meth": False},
+        {"sample_id": "B1", "group": "LumB", "has_rna": True, "has_meth": True},
+        {"sample_id": "B2", "group": "LumB", "has_rna": True, "has_meth": True},
+        {"sample_id": "B3", "group": "LumB", "has_rna": False, "has_meth": True},
+    ])
+    result = train_test_split_cohort(cohort, test_frac=0.25, random_state=2024)
+    excluded = result[result["split"] == ""]
+    assert set(excluded["sample_id"]) == {"A3", "B3"}
+
+
+def test_train_test_split_rejects_bad_frac():
+    cohort = _make_dual_modality_cohort()
+    with pytest.raises(ValueError, match="test_frac"):
+        train_test_split_cohort(cohort, test_frac=0.0)
+    with pytest.raises(ValueError, match="test_frac"):
+        train_test_split_cohort(cohort, test_frac=1.0)
+
+
+def test_train_test_split_rejects_bad_stratify_col():
+    cohort = _make_dual_modality_cohort()
+    with pytest.raises(ValueError, match="stratify_col"):
+        train_test_split_cohort(cohort, stratify_col="nonexistent")
