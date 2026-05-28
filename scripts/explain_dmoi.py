@@ -39,7 +39,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
-from sklearn.preprocessing import StandardScaler  # noqa: E402
 
 from dmoi_brca.attribution import (  # noqa: E402
     completeness_residual,
@@ -166,6 +165,9 @@ def main() -> int:
     )
 
     # --- Train one final model on full train (deterministic recipe) ---
+    # v0.4 cleanup (#197): single training pass with keep_artifacts=True
+    # surfaces the trained model + scalers on the FoldResult. No more
+    # double-train.
     print(f"\n--- Training final Option A model "
           f"(n_epochs={N_EPOCHS}, no peek, calibration_frac=0.15) ---")
     result = train_one_fold(
@@ -176,76 +178,20 @@ def main() -> int:
         fold=0,
         rna_dim=feats.rna.shape[1], meth_dim=feats.meth.shape[1],
         n_epochs=N_EPOCHS, patience=N_EPOCHS + 1,
+        keep_artifacts=True,
         **FINAL_KWARGS,
     )
     print(f"  Test AUROC : {result.best_val_auc:.4f}")
-
-    # --- Pull the trained model + scalers used inside train_one_fold ---
-    # train_one_fold fits StandardScaler internally; we have to re-fit here
-    # (same recipe, same train data, deterministic).
-    rna_scaler = StandardScaler().fit(feats.rna)
-    meth_scaler = StandardScaler().fit(feats.meth)
-    rna_test_std = rna_scaler.transform(feats_test.rna).astype(np.float32)
-    meth_test_std = meth_scaler.transform(feats_test.meth).astype(np.float32)
-
-    # Reconstruct the model for attribution. The training loop returns
-    # logits/proba/etc. but not the model. Re-train deterministically
-    # would be expensive; instead, we re-build a model and load its
-    # state_dict... but train_one_fold doesn't expose state_dict either.
-    # Pragmatic alternative: keep the training in scope by re-running
-    # train_one_fold with the same seed, then attribute on a freshly
-    # constructed model with the SAME forward signature.
-    #
-    # Cleanest path: import DMOIModel + reconstruct + load state from
-    # a save we add inline. The current train_one_fold doesn't save,
-    # so we do a quick second pass that captures the model.
-    import torch  # noqa: PLC0415
-
-    from dmoi_brca.dmoi_model import DMOIModel  # noqa: PLC0415
-
-    print("\n--- Re-building trained model for attribution ---")
-    torch.manual_seed(FINAL_KWARGS["seed"])
-    np.random.seed(FINAL_KWARGS["seed"])
-    model = DMOIModel(
-        rna_dim=feats.rna.shape[1], meth_dim=feats.meth.shape[1],
-        pole_masks=pole_masks,
-        latent_dim=128, rna_hidden=(1024, 256), meth_hidden=(512,),
-        fuse_hidden=(128,), fuse_out=64, head_hidden=32, dropout=0.3,
-        use_disagreement=True,
-    )
-    opt = torch.optim.AdamW(model.parameters(), lr=1e-4, weight_decay=1e-4)
-    rna_tr_std = rna_scaler.transform(feats.rna).astype(np.float32)
-    meth_tr_std = meth_scaler.transform(feats.meth).astype(np.float32)
-    n_pos = int(feats.y.sum())
-    n_neg = len(feats.y) - n_pos
-    pos_weight = torch.tensor(n_neg / max(n_pos, 1), dtype=torch.float32)
-    loss_fn = torch.nn.BCEWithLogitsLoss(pos_weight=pos_weight)
-    rna_t = torch.from_numpy(rna_tr_std)
-    meth_t = torch.from_numpy(meth_tr_std)
-    y_t = torch.from_numpy(feats.y.astype(np.float32))
-    # Use the same per-fold mini-batching as train_one_fold.
-    from torch.utils.data import DataLoader, TensorDataset  # noqa: PLC0415
-
-    loader = DataLoader(
-        TensorDataset(rna_t, meth_t, y_t), batch_size=64, shuffle=True,
-    )
-    for _ in range(N_EPOCHS):
-        model.train()
-        for b_rna, b_meth, b_y in loader:
-            opt.zero_grad()
-            out = model(b_rna, b_meth)
-            loss = loss_fn(out["logits"], b_y)
-            eps = 1e-7
-            s_a = out["pole_scores"]["LumA"].clamp(eps, 1.0 - eps)
-            s_b = out["pole_scores"]["LumB"].clamp(eps, 1.0 - eps)
-            aux = (
-                torch.nn.functional.binary_cross_entropy(s_a, 1.0 - b_y)
-                + torch.nn.functional.binary_cross_entropy(s_b, b_y)
-            )
-            (loss + 0.3 * aux).backward()
-            opt.step()
+    if result.model is None or result.rna_scaler is None or result.meth_scaler is None:
+        sys.stderr.write(
+            "ERROR: train_one_fold returned no model/scalers. "
+            "Did you pass keep_artifacts=True?\n",
+        )
+        return 1
+    model = result.model
     model.eval()
-    print("  Re-trained model in scope. Running attribution.")
+    rna_test_std = result.rna_scaler.transform(feats_test.rna).astype(np.float32)
+    meth_test_std = result.meth_scaler.transform(feats_test.meth).astype(np.float32)
 
     # --- Run IG for three targets ---
     AUDIT.mkdir(exist_ok=True)

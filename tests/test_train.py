@@ -182,6 +182,62 @@ def test_calibration_split_default_is_zero():
     assert result.cal_logits is None
 
 
+def test_keep_artifacts_false_returns_none_model_and_scalers():
+    """Default keep_artifacts=False: FoldResult.model + scalers stay None."""
+    rna, meth, y, pole_masks = _synthetic_dataset(n=40)
+    half = len(y) // 2
+    result = train_one_fold(
+        rna_train=rna[:half], meth_train=meth[:half], y_train=y[:half],
+        rna_val=rna[half:], meth_val=meth[half:], y_val=y[half:],
+        pole_masks=pole_masks,
+        fold=1,
+        rna_dim=rna.shape[1], meth_dim=meth.shape[1],
+        latent_dim=8, rna_hidden=(16,), meth_hidden=(16,),
+        fuse_hidden=(8,), fuse_out=4, head_hidden=4, dropout=0.0,
+        n_epochs=2, batch_size=8, lr=1e-3, weight_decay=0.0,
+        patience=10, seed=0, device="cpu", verbose=False,
+    )
+    assert result.model is None
+    assert result.rna_scaler is None
+    assert result.meth_scaler is None
+
+
+def test_keep_artifacts_true_populates_model_and_scalers():
+    """keep_artifacts=True: FoldResult.model is a DMOIModel; scalers are
+    StandardScalers fit on the train fold."""
+    from sklearn.preprocessing import StandardScaler  # noqa: PLC0415
+
+    from dmoi_brca.dmoi_model import DMOIModel  # noqa: PLC0415
+
+    rna, meth, y, pole_masks = _synthetic_dataset(n=40)
+    half = len(y) // 2
+    result = train_one_fold(
+        rna_train=rna[:half], meth_train=meth[:half], y_train=y[:half],
+        rna_val=rna[half:], meth_val=meth[half:], y_val=y[half:],
+        pole_masks=pole_masks,
+        fold=1,
+        rna_dim=rna.shape[1], meth_dim=meth.shape[1],
+        latent_dim=8, rna_hidden=(16,), meth_hidden=(16,),
+        fuse_hidden=(8,), fuse_out=4, head_hidden=4, dropout=0.0,
+        n_epochs=2, batch_size=8, lr=1e-3, weight_decay=0.0,
+        patience=10, seed=0, device="cpu", verbose=False,
+        keep_artifacts=True,
+    )
+    assert isinstance(result.model, DMOIModel)
+    assert isinstance(result.rna_scaler, StandardScaler)
+    assert isinstance(result.meth_scaler, StandardScaler)
+    # Scalers were fit on the train fold (n=20, shape[1]=12 RNA / 10 meth).
+    assert result.rna_scaler.mean_.shape == (rna.shape[1],)
+    assert result.meth_scaler.mean_.shape == (meth.shape[1],)
+    # Model can do a forward pass on standardized inputs without crashing.
+    rna_std = result.rna_scaler.transform(rna[half:]).astype("float32")
+    meth_std = result.meth_scaler.transform(meth[half:]).astype("float32")
+    result.model.eval()
+    out = result.model(torch.from_numpy(rna_std), torch.from_numpy(meth_std))
+    assert "logits" in out
+    assert out["logits"].shape == (half,)
+
+
 def test_calibration_split_rejects_invalid_frac():
     rna, meth, y, pole_masks = _synthetic_dataset(n=40)
     half = len(y) // 2

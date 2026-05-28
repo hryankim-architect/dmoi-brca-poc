@@ -67,6 +67,14 @@ class FoldResult:
     cal_labels: np.ndarray | None = None
     cal_logits: np.ndarray | None = None  # logits at best epoch on cal split
     n_cal: int = 0
+    # v0.4 additions — return the trained model + the fitted scalers so
+    # downstream scripts (explain_dmoi.py, eval_external.py) can attribute
+    # / predict without re-training. The model has its best-epoch weights
+    # loaded in. Held by reference; populated only when keep_artifacts=True.
+    model: object | None = None         # DMOIModel; typed as object to keep
+                                        # FoldResult dataclass torch-import-free.
+    rna_scaler: object | None = None    # sklearn StandardScaler fit on train RNA
+    meth_scaler: object | None = None   # sklearn StandardScaler fit on train meth
 
 
 def _resolve_device(prefer: str = "auto") -> torch.device:
@@ -111,6 +119,7 @@ def train_one_fold(
     aux_weight: float = 0.0,
     calibration_frac: float = 0.0,
     pick_best_epoch: bool = True,
+    keep_artifacts: bool = False,
 ) -> FoldResult:
     """Train one DMOI model on one fold's data, return per-epoch metrics + best val AUC.
 
@@ -118,6 +127,12 @@ def train_one_fold(
     (stratified on y) and excluded from training. The model is evaluated on
     this calibration split at the best epoch and the logits are returned in
     `cal_logits` / `cal_labels` for downstream temperature scaling.
+
+    If `keep_artifacts=True`, the returned FoldResult also carries
+    `.model` (DMOIModel with best-epoch weights loaded), `.rna_scaler`
+    and `.meth_scaler` (sklearn StandardScalers fit on the train data).
+    Use this when a downstream script needs to attribute or predict
+    without re-training (e.g., `scripts/explain_dmoi.py`).
 
     If `pick_best_epoch=False`, the model trains for the full `n_epochs` with
     no early stopping and no best-epoch selection — the returned `val_*`
@@ -311,6 +326,12 @@ def train_one_fold(
         y_cal.astype(np.int64).copy() if cal_idx_local is not None else None
     )
     n_cal_out = int(len(y_cal)) if cal_idx_local is not None else 0
+    # v0.4 cleanup: optionally surface the trained model + scalers so
+    # downstream scripts (explain_dmoi.py, eval_external.py) can attribute
+    # / predict without re-training.
+    model_out = model if keep_artifacts else None
+    rna_scaler_out = rna_scaler if keep_artifacts else None
+    meth_scaler_out = meth_scaler if keep_artifacts else None
     return FoldResult(
         fold=fold,
         best_val_auc=best_val_auc,
@@ -331,6 +352,9 @@ def train_one_fold(
         cal_labels=cal_labels_out,
         cal_logits=best_cal_logits,
         n_cal=n_cal_out,
+        model=model_out,
+        rna_scaler=rna_scaler_out,
+        meth_scaler=meth_scaler_out,
     )
 
 

@@ -38,7 +38,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 from sklearn.metrics import balanced_accuracy_score, roc_auc_score  # noqa: E402
-from sklearn.preprocessing import StandardScaler  # noqa: E402
 
 from dmoi_brca.calibration import apply_temperature, fit_temperature  # noqa: E402
 from dmoi_brca.eval import compute_calibration, confusion_matrix_table  # noqa: E402
@@ -178,17 +177,14 @@ def main() -> int:
     print(f"  TCGA train  for ref -> mean {feats.rna.mean():+.3f}, "
           f"std {feats.rna.std():.3f}")
 
-    # --- StandardScaler fit on TCGA train, applied to QN'd METABRIC + train ---
-    rna_scaler = StandardScaler().fit(feats.rna)
-    rna_train_std = rna_scaler.transform(feats.rna).astype(np.float32)
-    ext_X_std = rna_scaler.transform(ext_X_qn).astype(np.float32)
-
     # Methylation: train uses normal meth; external is silenced.
-    meth_scaler = StandardScaler().fit(feats.meth)
-    meth_train_std = meth_scaler.transform(feats.meth).astype(np.float32)
+    # `make_silenced_meth` returns zeros at the standardized-domain level
+    # (= post-StandardScaler train mean). train_one_fold fits its own
+    # StandardScaler on rna_train + meth_train and applies it to rna_val
+    # + meth_val internally — no need to standardize here.
     meth_ext_silenced = make_silenced_meth(
         ext_X_qn.shape[0], feats.meth.shape[1],
-    )  # zeros at the standardized-domain level = train mean
+    )
 
     # --- Build pole masks (same TCGA HiSeqV2 + HM450 mapping as eval_dmoi) ---
     print("\n--- Building pole masks ---")
@@ -223,12 +219,6 @@ def main() -> int:
     )
     print(f"  External AUROC : {result.best_val_auc:.4f}")
     print(f"  External BalAcc: {result.best_val_bacc:.4f}")
-
-    # Touch the standardized vars so linters don't complain about
-    # unused intermediate computations (StandardScaler validation was
-    # done in train_one_fold internally, but we kept the locals for
-    # potential future use).
-    _ = (rna_train_std, ext_X_std, meth_train_std)
 
     # --- Calibrate on cal-split fit inside training, apply to external ---
     # Naive cross-cohort transfer: take T fit on TCGA cal-split and apply
