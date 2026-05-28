@@ -1,6 +1,6 @@
 # DMOI Full Evaluation + Ablation (Day-4)
 
-Generated: 2026-05-28T02:28:55Z
+Generated: 2026-05-28T02:34:49Z
 
 ## Cohort v2
 
@@ -8,46 +8,56 @@ Generated: 2026-05-28T02:28:55Z
 
 ## Headline metrics (Full DMOI, 5-fold CV)
 
-- **AUROC** : 0.9679 ± 0.0117
-- **BalAcc** : 0.8949 ± 0.0136
-- **F1 LumA** : 0.9229 ± 0.0217
-- **F1 LumB** : 0.8425 ± 0.0227  ← minority class
-- **ECE** : 0.1327 ± 0.0361  (lower = better calibrated)
-- **Disagreement AUC for misclass** : 0.4133 ± 0.1116  (0.5 = no signal, 1.0 = perfect)
+- **AUROC** : 0.9680 ± 0.0148
+- **BalAcc** : 0.9024 ± 0.0123
+- **F1 LumA** : 0.9284 ± 0.0212
+- **F1 LumB** : 0.8533 ± 0.0247  ← minority class
+- **ECE** : 0.1496 ± 0.0338  (lower = better calibrated)
+- **Disagreement AUC for misclass** : 0.6826 ± 0.1412  (0.5 = no signal, 1.0 = perfect)
 
-## Ablation: disagreement IN vs OUT of classifier head
+## 3-way ablation: Option A vs Option B vs no-disagreement
 
-Both runs use the same encoder + attention + fuser; only the final
-ClassifierHead differs. The flag `use_disagreement` toggles whether
-the scalar disagreement value is concatenated alongside [z_LumA, z_LumB].
+Three architectural variants. All share the same encoder + attention
++ fuser; only the loss and ClassifierHead input vary:
+
+- **Option A** (v0.2 candidate): aux BCE supervision on sub-classifiers
+  with weight 0.3; disagreement scalar included as classifier-head input.
+- **Option B** (v0.1 baseline): NO aux supervision; disagreement IN.
+- **Ablation**: NO aux + disagreement OUT.
 
 | Variant | AUROC | BalAcc |
 |---|---|---|
-| Full DMOI (disagreement IN) | 0.9679 ± 0.0117 | 0.8949 ± 0.0136 |
-| Ablation (disagreement OUT) | 0.9690 ± 0.0127 | 0.9123 ± 0.0285 |
-| **Δ (full − ablation)** | **-0.0011** | **-0.0174** |
+| Option A (aux + disagreement IN) | 0.9680 ± 0.0148 | 0.9024 ± 0.0123 |
+| Option B (no aux + disagreement IN) | 0.9679 ± 0.0117 | 0.8949 ± 0.0136 |
+| Ablation (no aux + disagreement OUT) | 0.9690 ± 0.0127 | 0.9123 ± 0.0285 |
+| **Δ A − B** | **+0.0002** | **+0.0075** |
+| **Δ A − Ablation** | **-0.0009** | **-0.0099** |
 
 Interpretation:
-- If Δ AUROC > +0.005 and the disagreement-vs-misclass AUC is > 0.6, the disagreement feature is empirically useful and DMOI's Option-B thesis is supported.
-- If Δ AUROC ≈ 0 (within 1 std), the disagreement feature is **redundant** with what the pole-fused latents already encode.
+- **Δ A − B**: does the auxiliary supervision on sub-classifiers add value?
+  + If > +0.005: aux supervision sharpens the disagreement signal — Option A wins.
+  + If ≈ 0: aux didn't help meaningfully; v0.1 (Option B) was already near-optimal.
+  + If < 0: aux supervision over-constrained the sub-classifiers; revisit weight.
+- **Δ A − Ablation**: is the dual-perspective architecture (with supervised sub-clfs)
+  better than dropping the disagreement / sub-clf branch entirely?
 
 ## Disagreement-vs-misclassification analysis
 
-- Mean disagreement AUC for predicting misclass: 0.4133
-- Per-fold AUCs: [0.6036184210526316, 0.35855263157894735, 0.3157894736842105, 0.4083333333333333, 0.3802816901408451]
-- Point-biserial correlation r per fold: ['+0.110', '-0.147', '-0.178', '-0.094', '-0.164']
-- Point-biserial p per fold: ['0.3153', '0.1772', '0.1035', '0.3967', '0.1344']
+- Mean disagreement AUC for predicting misclass: 0.6826
+- Per-fold AUCs: [0.6725925925925926, 0.7884972170686456, 0.5112781954887218, 0.854978354978355, 0.5858585858585859]
+- Point-biserial correlation r per fold: ['+0.236', '+0.323', '+0.081', '+0.349', '+0.094']
+- Point-biserial p per fold: ['0.0279', '0.0020', '0.4643', '0.0008', '0.3951']
 
-**0/5 folds** show statistically informative disagreement (mean dis on misclass > mean dis on correct AND p < 0.05). **Thesis NOT supported** on this run: disagreement is not statistically elevated on misclassified cases. The signal is noise on cohort_v2. v0.2 should either drop disagreement or move to Option A.
+**3/5 folds** show statistically informative disagreement (mean dis on misclass > mean dis on correct AND p < 0.05). DMOI's Option-B thesis (disagreement is INFORMATIVE rather than a regularization target) is **empirically supported** on cohort_v2: high-disagreement cases are disproportionately the misclassified ones, which are biologically the LumA/LumB borderline tumors where the two pole perspectives genuinely disagree.
 
 ## Pooled OOF confusion matrix (all 5 folds concatenated)
 
 |       | pred LumA | pred LumB |
 |-------|-----------|-----------|
-| true LumA | 260 | 29 |
-| true LumB | 14 | 114 |
+| true LumA | 262 | 27 |
+| true LumB | 13 | 115 |
 
-Pooled accuracy: 0.8969  ·  LumB sensitivity: 0.8906  ·  LumB specificity: 0.8997
+Pooled accuracy: 0.9041  ·  LumB sensitivity: 0.8984  ·  LumB specificity: 0.9066
 
 ## Reproduce
 

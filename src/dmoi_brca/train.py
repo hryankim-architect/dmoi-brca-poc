@@ -101,6 +101,7 @@ def train_one_fold(
     device: str = "auto",
     verbose: bool = True,
     use_disagreement: bool = True,
+    aux_weight: float = 0.0,
 ) -> FoldResult:
     """Train one DMOI model on one fold's data, return per-epoch metrics + best val AUC."""
     torch.manual_seed(seed)
@@ -161,6 +162,21 @@ def train_one_fold(
             opt.zero_grad()
             out = model(b_rna, b_meth)
             loss = loss_fn(out["logits"], b_y)
+            if aux_weight > 0:
+                # Option A: supervised sub-classifiers.
+                # Convention: label=1 means LumB, label=0 means LumA.
+                # LumA branch should predict P(patient is LumA) = 1 - label.
+                # LumB branch should predict P(patient is LumB) = label.
+                eps = 1e-7
+                s_luma = out["pole_scores"]["LumA"].clamp(eps, 1.0 - eps)
+                s_lumb = out["pole_scores"]["LumB"].clamp(eps, 1.0 - eps)
+                luma_target = 1.0 - b_y
+                lumb_target = b_y
+                aux_loss = (
+                    nn.functional.binary_cross_entropy(s_luma, luma_target)
+                    + nn.functional.binary_cross_entropy(s_lumb, lumb_target)
+                )
+                loss = loss + aux_weight * aux_loss
             if not torch.isfinite(loss):
                 raise FloatingPointError(
                     f"Non-finite training loss at fold {fold} epoch {epoch}: {loss.item()}",

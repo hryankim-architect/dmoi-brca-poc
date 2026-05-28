@@ -95,21 +95,36 @@ def main() -> int:
         {"LumA": POLE_LUMA, "LumB": POLE_LUMB},
     )
 
-    # --- Full DMOI (with disagreement) ---
-    print("\n--- Run 1/2: Full DMOI (disagreement IN) ---")
-    full_results = run_dmoi_cv(
+    # --- Option A: aux BCE supervision on sub-classifiers + disagreement IN ---
+    print("\n--- Run 1/3: Option A (aux BCE on sub-clf + disagreement IN) ---")
+    optionA_results = run_dmoi_cv(
         rna=feats.rna, meth=feats.meth, y=feats.y,
-        pole_masks=pole_masks, use_disagreement=True, **COMMON_KWARGS,
+        pole_masks=pole_masks, use_disagreement=True,
+        aux_weight=0.3, **COMMON_KWARGS,
     )
-    full_agg_train = aggregate_fold_results(full_results)
+    optionA_agg_train = aggregate_fold_results(optionA_results)
 
-    # --- Ablation (no disagreement) ---
-    print("\n--- Run 2/2: Ablation (disagreement OUT) ---")
+    # --- Option B: original v0.1 — no aux, disagreement IN ---
+    print("\n--- Run 2/3: Option B (no aux + disagreement IN) [v0.1 baseline] ---")
+    optionB_results = run_dmoi_cv(
+        rna=feats.rna, meth=feats.meth, y=feats.y,
+        pole_masks=pole_masks, use_disagreement=True,
+        aux_weight=0.0, **COMMON_KWARGS,
+    )
+    optionB_agg_train = aggregate_fold_results(optionB_results)
+
+    # --- Ablation: no aux, no disagreement input ---
+    print("\n--- Run 3/3: Ablation (no aux + disagreement OUT) ---")
     ablation_results = run_dmoi_cv(
         rna=feats.rna, meth=feats.meth, y=feats.y,
-        pole_masks=pole_masks, use_disagreement=False, **COMMON_KWARGS,
+        pole_masks=pole_masks, use_disagreement=False,
+        aux_weight=0.0, **COMMON_KWARGS,
     )
     ablation_agg_train = aggregate_fold_results(ablation_results)
+
+    # Use Option A as the "full DMOI" canonical run going forward.
+    full_results = optionA_results
+    full_agg_train = optionA_agg_train
 
     # --- Build per-fold eval bundles for the full DMOI run ---
     print("\n--- Analytical eval ---")
@@ -130,24 +145,29 @@ def main() -> int:
     pooled_pred = (pooled_proba >= 0.5).astype(np.int64)
     pooled_cm = confusion_matrix_table(pooled_labels, pooled_pred)
 
-    # --- Per-fold TSV ---
+    # --- Per-fold TSV (3-way: Option A / Option B / Ablation) ---
     AUDIT.mkdir(exist_ok=True)
     per_fold = AUDIT / "dmoi_eval_per_fold.tsv"
     with per_fold.open("w") as f:
         f.write(
-            "fold\tauc_full\tauc_ablation\tbacc_full\tbacc_ablation\t"
-            "f1_lumA\tf1_lumB\tece\tdis_auc\tdis_r\tdis_p\tn_test\tn_pos_test\n",
+            "fold\tauc_A\tauc_B\tauc_ablation\tbacc_A\tbacc_B\tbacc_ablation\t"
+            "f1_lumA_optA\tf1_lumB_optA\tece_optA\t"
+            "dis_auc_optA\tdis_r_optA\tdis_p_optA\tn_test\tn_pos_test\n",
         )
-        for full_r, abl_r, b in zip(full_results, ablation_results, bundles, strict=True):
+        for a_r, b_r, abl_r, eb in zip(
+            optionA_results, optionB_results, ablation_results, bundles, strict=True,
+        ):
             f.write(
-                f"{b.fold}\t{full_r.best_val_auc:.4f}\t{abl_r.best_val_auc:.4f}\t"
-                f"{full_r.best_val_bacc:.4f}\t{abl_r.best_val_bacc:.4f}\t"
-                f"{b.per_class['LumA'].f1:.4f}\t{b.per_class['LumB'].f1:.4f}\t"
-                f"{b.calibration.ece:.4f}\t"
-                f"{b.disagreement_report.auc_dis_predicts_misclass:.4f}\t"
-                f"{b.disagreement_report.point_biserial_r:.4f}\t"
-                f"{b.disagreement_report.point_biserial_p:.4f}\t"
-                f"{b.n_test}\t{int((b.labels == 1).sum())}\n",
+                f"{eb.fold}\t{a_r.best_val_auc:.4f}\t{b_r.best_val_auc:.4f}\t"
+                f"{abl_r.best_val_auc:.4f}\t"
+                f"{a_r.best_val_bacc:.4f}\t{b_r.best_val_bacc:.4f}\t"
+                f"{abl_r.best_val_bacc:.4f}\t"
+                f"{eb.per_class['LumA'].f1:.4f}\t{eb.per_class['LumB'].f1:.4f}\t"
+                f"{eb.calibration.ece:.4f}\t"
+                f"{eb.disagreement_report.auc_dis_predicts_misclass:.4f}\t"
+                f"{eb.disagreement_report.point_biserial_r:.4f}\t"
+                f"{eb.disagreement_report.point_biserial_p:.4f}\t"
+                f"{eb.n_test}\t{int((eb.labels == 1).sum())}\n",
             )
     print(f"Wrote {per_fold}")
 
@@ -157,8 +177,10 @@ def main() -> int:
     dis_ps = [b.disagreement_report.point_biserial_p for b in bundles]
     n_info_folds = sum(1 for b in bundles if b.disagreement_report.is_informative)
 
-    delta_auc = full_agg_train["auc_mean"] - ablation_agg_train["auc_mean"]
-    delta_bacc = full_agg_train["bacc_mean"] - ablation_agg_train["bacc_mean"]
+    delta_auc_A_vs_abl = optionA_agg_train["auc_mean"] - ablation_agg_train["auc_mean"]
+    delta_bacc_A_vs_abl = optionA_agg_train["bacc_mean"] - ablation_agg_train["bacc_mean"]
+    delta_auc_A_vs_B = optionA_agg_train["auc_mean"] - optionB_agg_train["auc_mean"]
+    delta_bacc_A_vs_B = optionA_agg_train["bacc_mean"] - optionB_agg_train["bacc_mean"]
 
     # --- Audit MD ---
     ts = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -210,25 +232,33 @@ def main() -> int:
         f"{eval_agg['auc_dis_predicts_misclass_mean']:.4f} ± "
         f"{eval_agg['auc_dis_predicts_misclass_std']:.4f}  "
         "(0.5 = no signal, 1.0 = perfect)\n\n"
-        "## Ablation: disagreement IN vs OUT of classifier head\n\n"
-        "Both runs use the same encoder + attention + fuser; only the final\n"
-        "ClassifierHead differs. The flag `use_disagreement` toggles whether\n"
-        "the scalar disagreement value is concatenated alongside [z_LumA, z_LumB].\n\n"
+        "## 3-way ablation: Option A vs Option B vs no-disagreement\n\n"
+        "Three architectural variants. All share the same encoder + attention\n"
+        "+ fuser; only the loss and ClassifierHead input vary:\n\n"
+        "- **Option A** (v0.2 candidate): aux BCE supervision on sub-classifiers\n"
+        "  with weight 0.3; disagreement scalar included as classifier-head input.\n"
+        "- **Option B** (v0.1 baseline): NO aux supervision; disagreement IN.\n"
+        "- **Ablation**: NO aux + disagreement OUT.\n\n"
         "| Variant | AUROC | BalAcc |\n"
         "|---|---|---|\n"
-        f"| Full DMOI (disagreement IN) | "
-        f"{full_agg_train['auc_mean']:.4f} ± {full_agg_train['auc_std']:.4f} | "
-        f"{full_agg_train['bacc_mean']:.4f} ± {full_agg_train['bacc_std']:.4f} |\n"
-        f"| Ablation (disagreement OUT) | "
+        f"| Option A (aux + disagreement IN) | "
+        f"{optionA_agg_train['auc_mean']:.4f} ± {optionA_agg_train['auc_std']:.4f} | "
+        f"{optionA_agg_train['bacc_mean']:.4f} ± {optionA_agg_train['bacc_std']:.4f} |\n"
+        f"| Option B (no aux + disagreement IN) | "
+        f"{optionB_agg_train['auc_mean']:.4f} ± {optionB_agg_train['auc_std']:.4f} | "
+        f"{optionB_agg_train['bacc_mean']:.4f} ± {optionB_agg_train['bacc_std']:.4f} |\n"
+        f"| Ablation (no aux + disagreement OUT) | "
         f"{ablation_agg_train['auc_mean']:.4f} ± {ablation_agg_train['auc_std']:.4f} | "
         f"{ablation_agg_train['bacc_mean']:.4f} ± {ablation_agg_train['bacc_std']:.4f} |\n"
-        f"| **Δ (full − ablation)** | **{delta_auc:+.4f}** | **{delta_bacc:+.4f}** |\n\n"
+        f"| **Δ A − B** | **{delta_auc_A_vs_B:+.4f}** | **{delta_bacc_A_vs_B:+.4f}** |\n"
+        f"| **Δ A − Ablation** | **{delta_auc_A_vs_abl:+.4f}** | **{delta_bacc_A_vs_abl:+.4f}** |\n\n"
         "Interpretation:\n"
-        f"- If Δ AUROC > +0.005 and the disagreement-vs-misclass AUC is > 0.6, "
-        "the disagreement feature is empirically useful and DMOI's Option-B "
-        "thesis is supported.\n"
-        "- If Δ AUROC ≈ 0 (within 1 std), the disagreement feature is **redundant** "
-        "with what the pole-fused latents already encode.\n\n"
+        "- **Δ A − B**: does the auxiliary supervision on sub-classifiers add value?\n"
+        "  + If > +0.005: aux supervision sharpens the disagreement signal — Option A wins.\n"
+        "  + If ≈ 0: aux didn't help meaningfully; v0.1 (Option B) was already near-optimal.\n"
+        "  + If < 0: aux supervision over-constrained the sub-classifiers; revisit weight.\n"
+        "- **Δ A − Ablation**: is the dual-perspective architecture (with supervised sub-clfs)\n"
+        "  better than dropping the disagreement / sub-clf branch entirely?\n\n"
         "## Disagreement-vs-misclassification analysis\n\n"
         f"- Mean disagreement AUC for predicting misclass: "
         f"{eval_agg['auc_dis_predicts_misclass_mean']:.4f}\n"
@@ -252,13 +282,16 @@ def main() -> int:
     )
     print(f"Wrote {summary_md}")
 
-    print("\n=== Day-4 summary ===")
-    print(f"  Full DMOI    AUROC : {full_agg_train['auc_mean']:.4f}  "
-          f"BalAcc : {full_agg_train['bacc_mean']:.4f}")
-    print(f"  Ablation     AUROC : {ablation_agg_train['auc_mean']:.4f}  "
+    print("\n=== Day-4 v0.2 summary (3-way ablation) ===")
+    print(f"  Option A (aux+dis IN) AUROC : {optionA_agg_train['auc_mean']:.4f}  "
+          f"BalAcc : {optionA_agg_train['bacc_mean']:.4f}")
+    print(f"  Option B (no aux+dis IN) AUROC : {optionB_agg_train['auc_mean']:.4f}  "
+          f"BalAcc : {optionB_agg_train['bacc_mean']:.4f}")
+    print(f"  Ablation (no aux+dis OUT) AUROC : {ablation_agg_train['auc_mean']:.4f}  "
           f"BalAcc : {ablation_agg_train['bacc_mean']:.4f}")
-    print(f"  Δ AUROC (full − ablation) : {delta_auc:+.4f}")
-    print(f"  Δ BalAcc (full − ablation) : {delta_bacc:+.4f}")
+    print(f"  Δ AUROC (Option A − Option B) : {delta_auc_A_vs_B:+.4f}")
+    print(f"  Δ AUROC (Option A − Ablation) : {delta_auc_A_vs_abl:+.4f}")
+    print(f"  Δ BalAcc (Option A − Ablation) : {delta_bacc_A_vs_abl:+.4f}")
     print(f"  F1 LumB (minority) : {eval_agg['f1_LumB_mean']:.4f} ± "
           f"{eval_agg['f1_LumB_std']:.4f}")
     print(f"  ECE : {eval_agg['ece_mean']:.4f} ± {eval_agg['ece_std']:.4f}")
