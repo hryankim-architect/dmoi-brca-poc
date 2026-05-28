@@ -126,6 +126,8 @@ def train_one_fold(
     # v0.7: optional pathway-pole attention branch.
     pathway_genes: dict[str, list[str]] | None = None,
     rna_feature_names: Sequence[str] | None = None,
+    # v0.8 Variant C: scalar -> vector pole feature.
+    pathway_proj_dim: int | None = None,
 ) -> FoldResult:
     """Train one DMOI model on one fold's data, return per-epoch metrics + best val AUC.
 
@@ -264,7 +266,7 @@ def train_one_fold(
         latent_dim=latent_dim, rna_hidden=rna_hidden, meth_hidden=meth_hidden,
         fuse_hidden=fuse_hidden, fuse_out=fuse_out, head_hidden=head_hidden,
         dropout=dropout, use_disagreement=use_disagreement,
-        n_pathways=n_pathways,
+        n_pathways=n_pathways, pathway_proj_dim=pathway_proj_dim,
     ).to(dev)
     opt = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
     loss_fn = nn.BCEWithLogitsLoss(pos_weight=pos_weight)

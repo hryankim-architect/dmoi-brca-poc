@@ -155,6 +155,84 @@ def test_pathway_pole_attention_zero_pathways_raises():
 
 
 # ---------------------------------------------------------------------------
+# PathwayPoleAttention -- v0.8 Variant C (proj_dim kwarg)
+# ---------------------------------------------------------------------------
+
+def test_pathway_pole_attention_scalar_mode_out_dim_equals_n_poles():
+    attn = PathwayPoleAttention(n_pathways=5, pole_order=("LumA", "LumB"))
+    assert attn.proj_dim is None
+    assert attn.projections is None
+    assert attn.out_dim == 2
+
+
+def test_pathway_pole_attention_vector_mode_out_dim_is_npoles_times_projdim():
+    attn = PathwayPoleAttention(
+        n_pathways=5, pole_order=("LumA", "LumB"), proj_dim=8,
+    )
+    assert attn.proj_dim == 8
+    assert attn.projections is not None
+    assert attn.out_dim == 2 * 8
+
+
+def test_pathway_pole_attention_vector_mode_forward_shape():
+    attn = PathwayPoleAttention(
+        n_pathways=5, pole_order=("LumA", "LumB"), proj_dim=4,
+    )
+    x = torch.randn(3, 5)
+    out = attn(x)
+    assert tuple(out.shape) == (3, 8)
+
+
+def test_pathway_pole_attention_vector_mode_gradient_flows_to_projections():
+    attn = PathwayPoleAttention(
+        n_pathways=4, pole_order=("LumA", "LumB"), proj_dim=3,
+    )
+    out = attn(torch.randn(2, 4))
+    out.sum().backward()
+    assert attn.attn_logits.grad is not None
+    for pole_proj in attn.projections.values():
+        assert pole_proj.weight.grad is not None
+        assert torch.isfinite(pole_proj.weight.grad).all()
+        assert pole_proj.weight.grad.abs().sum() > 0
+
+
+def test_pathway_pole_attention_vector_mode_param_delta_matches_expected():
+    """Vector mode adds n_poles * n_pathways * proj_dim params + bookkeeping."""
+    n_paths, n_poles, proj_dim = 7, 2, 5
+    scalar = PathwayPoleAttention(n_pathways=n_paths, pole_order=("LumA", "LumB"))
+    vector = PathwayPoleAttention(
+        n_pathways=n_paths, pole_order=("LumA", "LumB"), proj_dim=proj_dim,
+    )
+    n_scalar = sum(p.numel() for p in scalar.parameters())
+    n_vector = sum(p.numel() for p in vector.parameters())
+    # Each pole gets nn.Linear(n_paths, proj_dim, bias=False)
+    expected_delta = n_poles * n_paths * proj_dim
+    assert n_vector - n_scalar == expected_delta
+
+
+def test_pathway_pole_attention_rejects_nonpositive_proj_dim():
+    with pytest.raises(ValueError, match="proj_dim"):
+        PathwayPoleAttention(
+            n_pathways=5, pole_order=("LumA",), proj_dim=0,
+        )
+
+
+def test_dmoi_model_pathway_proj_dim_wires_vector_branch():
+    """DMOIModel.pathway_proj_dim should propagate to PathwayPoleAttention."""
+    m = DMOIModel(
+        rna_dim=8, meth_dim=4, pole_masks=_tiny_pole_masks(8, 4),
+        latent_dim=4, rna_hidden=(8,), meth_hidden=(4,),
+        fuse_hidden=(8,), fuse_out=4, head_hidden=4,
+        n_pathways=6, pathway_proj_dim=3,
+    )
+    assert m.pathway_attention.proj_dim == 3
+    assert m.pathway_attention.out_dim == 2 * 3
+    out = m(torch.randn(2, 8), torch.randn(2, 4), torch.randn(2, 6))
+    assert tuple(out["pole_pathway_feat"].shape) == (2, 6)
+    assert tuple(out["logits"].shape) == (2,)
+
+
+# ---------------------------------------------------------------------------
 # DMOIModel n_pathways switching
 # ---------------------------------------------------------------------------
 

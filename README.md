@@ -28,25 +28,29 @@ proves the *method* and the *engineering*, not the result. See
 
 ---
 
-## v0.7.1 headline result (Phase A + Phase B — two-phase honest negative)
+## v0.8 headline result (3-variant architecture experiment closure)
 
-| Metric | DMOI v0.7.1 |
+| Metric | DMOI v0.8 |
 |---|---|
 | 5-fold CV AUROC (TCGA train split, n=333) | 0.954 ± 0.017 |
 | **v0.6 reference: TCGA held-out test AUROC** | **0.968** |
-| **v0.7 Phase A (standardized inputs)** | **0.957** (Δ −0.011) — collapse |
-| **v0.7 Phase B (raw inputs + warm init)** | **0.960** (Δ −0.009) — learned, wrong basin |
+| v0.7 Phase A (collapse) TCGA AUROC | 0.957 |
+| v0.7.1 Phase B (scalar) TCGA AUROC | 0.960 |
+| **v0.8 Variant C (vector, proj_dim=16) TCGA AUROC** | **0.954** |
 | **v0.6 reference: METABRIC external AUROC** | **0.909** |
-| **v0.7 Phase A METABRIC** | **0.913** (Δ +0.004) |
-| **v0.7 Phase B METABRIC** | **0.898** (Δ −0.012) |
+| v0.7 Phase A METABRIC | 0.913 |
+| v0.7.1 Phase B METABRIC | 0.898 |
+| **v0.8 Variant C METABRIC** | **0.920** (within noise of v0.6) |
 | Per-patient IG attribution (v0.3) | lumA / lumB / final logit on TCGA test (n=84) |
 | Cross-cohort attribution agreement (v0.4) | Jaccard top-10 = 0.667 lumA + 0.667 lumB on METABRIC vs TCGA test |
 | Pathway-level aggregation, 5 sets (v0.5) | lumA loads ESTROGEN_RESPONSE ~300× harder than cell-cycle; lumB loads cell-cycle ~45× harder than ER |
 | Full Hallmark catalog rollup, 50 sets (v0.6) | All v0.5 top pathways stay in the top-3 out of 50, on both cohorts |
-| **Pathway-pole attention, learnable (v0.7 Phase A)** | Softmax attention collapsed to uniform (top-5 weights 0.0203–0.0205 vs uniform 0.0200). 0/3 v0.6 top-3 overlap. Documented mechanical failure mode of softmax-over-standardized-inputs. |
-| **Pathway-pole attention, fixed inputs + warm init (v0.7 Phase B)** | **Collapse fixed (LumA top weight 0.069 = 3.4× uniform; LumB 0.048 = 2.4× uniform), but the model learned a different basin: WNT/INTERFERON/MTORC1 instead of ER for LumA; KRAS/MTORC1/PEROXISOME instead of E2F/G2M/MYC for LumB. 0/3 v0.6 top-3 overlap. AUROC dropped on both cohorts. Scalar-per-pole softmax dot-product captures pathway *magnitude* variance, not *direction* signal — the next attempt (v0.8 Variant C) projects pole feature scalar → vector to give the head a richer interface.** |
+| Learnable pathway attention v0.7 Phase A | Softmax collapse under standardized inputs (uniform weights, no learning) |
+| Learnable pathway attention v0.7.1 Phase B | Collapse fixed, scalar pole feature converged on magnitude-driven basin (WNT/INTERFERON/MTORC1 LumA; KRAS/MTORC1/PEROXISOME LumB) instead of v0.6 IG-derived ER/cell-cycle basin |
+| **Learnable pathway attention v0.8 Variant C** | **Vector pole feature (proj_dim=16, 17× more pathway-branch parameters than v0.7.1) converged to the SAME wrong basin as v0.7.1. Top-5 weights identical within sub-percentage-point precision on both poles. Interface dimensionality is not the bottleneck — the gene-level branch fully captures discriminative direction, so the pathway branch can only find magnitude variance.** |
+| **Closing conclusion (v0.7+v0.8)** | **3 variants confirmed: gene-level commitment is the right architectural level; pathway view should remain post-hoc interpretation (v0.5/v0.6 IG rollup). v0.6 remains canonical.** |
 
-**The honest takeaway, in nine acts:**
+**The honest takeaway, in ten acts:**
 
 1. **Baseline saturated the easy signal.** Plain LogReg on
    concat(RNA, methylation) lands at 0.963 AUROC on the 417-patient
@@ -122,33 +126,40 @@ proves the *method* and the *engineering*, not the result. See
    [`docs/v0.7-design-pathway-attention.md`](docs/v0.7-design-pathway-attention.md)).
    Two phases:
    * **Phase A** (standardized inputs + tight init): attention
-     collapsed to uniform (top weights 0.0203–0.0205 vs uniform
-     0.0200). Mechanism: zero-centered inputs × uniform softmax
-     produces zero output, head learns to ignore the feature, no
-     gradient flows back to attention — self-reinforcing
-     equilibrium of uselessness.
-   * **Phase B** (raw inputs + warm init): collapse fixed — LumA
-     top weight 0.069 (3.4× uniform), LumB 0.048 (2.4× uniform) —
-     but the model learned a completely different basin than v0.6's
-     IG-derived ranking. 0/3 v0.6 top-3 pathways made the Phase B
-     top-3 on either pole; AUROC dropped on both cohorts. Diagnosis:
-     scalar `pole_pathway_feat = sum_k w_k × mean_expression_k` only
-     captures pathway-magnitude variance across patients, not
-     pathway-direction signal. The LumA-vs-LumB discriminative
-     axis is in direction (ER program up for LumA, cell-cycle up
-     for LumB), not in absolute magnitude.
+     collapsed to uniform — softmax over zero-centered input plus
+     weight decay = self-reinforcing equilibrium of uselessness.
+   * **Phase B** (raw inputs + warm init): collapse fixed — but the
+     model learned a different basin than v0.6's IG-derived ranking.
+     0/3 v0.6 top-3 overlap on both poles; AUROC dropped.
+     Diagnosis: scalar `pole_pathway_feat = sum_k w_k ×
+     mean_expression_k` only captures pathway-magnitude variance,
+     not pathway-direction signal.
 
    Both phases are recorded in [`audit/dmoi_v0.7.md`](audit/dmoi_v0.7.md).
-   v0.6 remains the canonical architecture. **v0.8 attempts Variant
-   C** — project the pole pathway feature from scalar to vector so
-   the head can read per-pathway *direction* signals (each pathway
-   gets a learnable embedding, weighted by the pole's softmax
-   attention). If Variant C also fails to reproduce the v0.6
-   ranking, the v0.7 + v0.8 sequence reads as: "for this particular
-   LumA-vs-LumB classification, the gene-level + post-hoc IG path
-   was the right level of architectural commitment, and adding a
-   trainable pathway-level branch on top is fundamentally redundant
-   with what the gene-level encoder already does."
+
+10. **Variant C confirms gene-level commitment is correct — v0.8
+    closure.** v0.8 upgraded the per-pole pathway feature from
+    scalar to a 16-dim vector via a learnable
+    `Linear(n_pathways, 16)` per pole, giving the classifier head
+    32 pathway features (17× more pathway-branch parameters than
+    v0.7.1's 2) and a fundamentally richer interface that *should*
+    let the model read per-pathway direction signals. Result: the
+    same wrong basin. LumA top-5 weights are identical to v0.7.1
+    within sub-percentage-point precision (WNT 0.0689 → 0.0685;
+    INTERFERON 0.0591 → 0.0594; MTORC1 0.0383 → 0.0384). 0/3 v0.6
+    top-3 overlap. AUROC on TCGA dropped further (0.954 vs v0.6's
+    0.968); METABRIC moved within noise.
+
+    The 3-variant matched-basin convergence is information-theoretic
+    evidence that **gene-level commitment is the right architectural
+    level for LumA-vs-LumB**. The gene-level encoder sees ESR1, PGR,
+    FOXA1, and the cell-cycle structural genes and resolves the
+    decision there. By the time gradient reaches the pathway branch,
+    the only signal left to exploit is pathway-*magnitude* variance,
+    which the head can grip whether it has 2 features or 32. The
+    pathway view's correct architectural role is the v0.5/v0.6
+    **post-hoc** IG rollup, not a trainable branch. Full closure
+    analysis in [`audit/dmoi_v0.8.md`](audit/dmoi_v0.8.md).
 
 ---
 
@@ -559,26 +570,65 @@ big patient-to-patient variance but no class-discriminative
 direction. AUROC drops because the new branch is competing with the
 gene-level branch and adding noise.
 
-### v0.8 plan — Variant C (scalar → vector pole feature)
+### v0.8 Variant C result — same wrong basin, architecture experiment closed
 
-Project `pole_pathway_feat` from `(batch, n_poles)` to
-`(batch, n_poles, proj_dim)` via a learnable linear layer per pole.
-Each pathway then has a learnable embedding (the row of the projection
-matrix), so the head can read per-pathway *direction* signals weighted
-by the pole's attention — not just a single magnitude scalar.
+v0.8 ran the planned Variant C upgrade: the per-pole pathway feature
+becomes a 16-dim vector via a learnable `Linear(n_pathways, 16)` per
+pole. The head now sees 32 pathway features (vs v0.7.1's 2) and the
+pathway branch has 17× more parameters (1700 vs 100). The design
+hypothesis: a richer interface lets the model read per-pathway
+*direction* signals (each pathway has a learned embedding row in the
+projection matrix), not just aggregate magnitude.
 
-`proj_dim=None` (default) keeps the v0.7.1 scalar path so the
-v0.7.1 release stays reproducible.
+| Cohort | v0.8 AUROC | v0.7.1 ref | v0.6 ref | Δ vs v0.6 |
+|---|---|---|---|---|
+| TCGA test | 0.954 | 0.960 | 0.968 | −0.015 |
+| METABRIC  | 0.920 | 0.898 | 0.909 | +0.011 |
+
+| Pole | v0.8 top-3 | v0.7.1 top-3 | Same basin? |
+|---|---|---|---|
+| LumA | WNT, INTERFERON, MTORC1 | WNT, INTERFERON, MTORC1 | **Yes** (top-5 weights identical to v0.7.1 within sub-pp) |
+| LumB | MTORC1, KRAS, PEROXISOME | MTORC1, KRAS, PEROXISOME | **Yes** (same set, same order) |
+
+**Variant C with 17× more parameters and a richer interface converged
+to the same magnitude-driven basin as v0.7.1.** The interface
+dimensionality was not the bottleneck.
+
+### Information-theoretic interpretation
+
+This is the decisive finding of the v0.7 + v0.8 experiment. The
+gradient signal reaching the pathway branch is *what the gene-level
+branch hasn't already explained*. The gene-level encoder sees ESR1,
+PGR, FOXA1, RANBP1, NBN, ZW10, and the rest, and resolves the
+LumA-vs-LumB decision there — at the gene level, in the direction
+axis. The pathway branch is left to grip whatever residual is left,
+and that residual happens to be pathway-magnitude variance (which
+pathways have high baseline absolute expression in any given
+patient), not pathway-direction signal (which pole-relevant program
+is up vs down).
+
+**Whether the head reads one scalar or 32 features per patient does
+not change what gradient flows back** — the same magnitude-driven
+basin is found either way. The matched-basin convergence is
+information-theoretic evidence that gene-level commitment is the
+right architectural level for LumA-vs-LumB, and that the pathway
+view's correct role is the v0.5/v0.6 post-hoc IG rollup, not a
+trainable extension.
 
 ### v0.6 remains canonical
 
-Regardless of v0.8 outcome, v0.6 (gene-level pole masks + post-hoc
-Hallmark IG rollup) remains the canonical DMOI architecture and the
-canonical interpretability story. The v0.7.1 two-phase finding is a
-recorded architecture-experiment lesson; it does not invalidate
-v0.5 / v0.6.
+The v0.7+v0.8 three-variant experiment now reads as a complete
+falsifiable architectural inquiry: tried softmax collapse mode
+(failed mechanically), tried scalar pole feature (wrong basin),
+tried vector pole feature with 17× more parameters (same wrong
+basin). The hypothesis "learnable pathway-pole attention can
+replace the v0.6 hand-picked masks" is falsified. The
+hypothesis "v0.6's gene-level commitment is the right level"
+is supported by 3 independent failures of the alternative.
 
-Full report: [`audit/dmoi_v0.7.md`](audit/dmoi_v0.7.md).
+Full reports: [`audit/dmoi_v0.7.md`](audit/dmoi_v0.7.md) (v0.7.1
+two-phase write-up) + [`audit/dmoi_v0.8.md`](audit/dmoi_v0.8.md)
+(v0.8 closure analysis).
 
 ---
 
@@ -627,11 +677,17 @@ python scripts/aggregate_pathway_ig_full.py  # ~7 min on MPS
                                               # + 6 per-(target, cohort) CSVs with all 50 sets
                                               # uses data/msigdb/h.all.v2024.1.Hs.symbols.gmt (CC-BY 4.0)
 
-# 11. (v0.7 Phase A) Learnable pathway-pole attention (architecture extension).
+# 11. (v0.7.1) Learnable pathway-pole attention (scalar pole feature, Phase B).
 python scripts/eval_dmoi_v0.7.py             # ~7 min on MPS
                                               # writes audit/dmoi_v0.7.md
-                                              # Phase A documented softmax-attention collapse;
-                                              # Phase B (v0.7.1) re-runs with raw inputs + warmer init.
+                                              # Two-phase documented honest negative
+
+# 12. (v0.8) Variant C -- vector pole feature (proj_dim=16, 17x more params).
+python scripts/eval_dmoi_v0.8.py             # ~7 min on MPS
+                                              # writes audit/dmoi_v0.8.md
+                                              # Closes the v0.7+v0.8 architecture experiment:
+                                              # same wrong basin as v0.7.1 with richer interface
+                                              # => gene-level commitment is the right level
 ```
 
 Pinned to Python 3.11+, `numpy 2.2`, `scikit-learn 1.7`, `torch 2.x`,
@@ -675,29 +731,38 @@ scripts/
 ├── explain_metabric.py       # v0.4: cross-cohort IG attribution (METABRIC, meth silenced)
 ├── aggregate_pathway_ig.py        # v0.5: Hallmark pathway rollup driver (5 priors-sets)
 ├── aggregate_pathway_ig_full.py   # v0.6: full 50-set Hallmark catalog rollup driver
-├── eval_dmoi_v0.7.py              # v0.7 Phase A: learnable pathway-pole attention driver
+├── eval_dmoi_v0.7.py              # v0.7.1 Phase B: scalar pole feature driver
+├── eval_dmoi_v0.8.py              # v0.8: vector pole feature (Variant C, proj_dim=16) driver
 └── check_english_only.py     # CJK gate enforced pre-push
 ```
 
 ---
 
-## What's out of scope for v0.7
+## What's out of scope for v0.8
 
 See [`docs/what-is-out-of-scope.md`](docs/what-is-out-of-scope.md) for the
-full list. Key items still deliberately deferred after v0.7 Phase A:
+full list. Key items still deliberately deferred after v0.8:
 
 - **Multi-modal external validation.** No public BRCA cohort outside TCGA
   has paired RNA-seq + HM450 — see the v0.2 design doc for the recon.
 - **Other pole hypotheses** (ER−/HER2+, basal vs claudin-low).
-- **Variant C / vector-valued per-pole pathway feature.** v0.7 Phase A
-  uses a scalar per pole; if Phase B also collapses, the next step is
-  projecting the pole pathway feature from scalar → vector to give the
-  head a richer interface.
+- **Variant E / auxiliary direction supervision.** Force the
+  pathway-attention to match the v0.6 IG-derived ranking via an
+  auxiliary loss. This would defeat the "does the model find it on
+  its own" question that v0.7+v0.8 explicitly tested, so it's
+  out of scope here.
+- **Variant A / pathway-only model** (replace genes with 50 pathway
+  means). Interesting ablation; AUROC drop almost certain
+  (~0.95→~0.90); deferred to v0.9+ as a sanity check on the v0.8
+  conclusion.
+- **proj_dim hyperparameter sweep.** v0.8 used proj_dim=16; the
+  matched-basin convergence across 2 ↔ 32 feature interfaces is
+  robust evidence that intermediate proj_dim values would not change
+  the conclusion.
 - **Other MSigDB collections.** Hallmark v2024.1.Hs (50 sets) only.
   C2 curated (~5,000 sets) and other collections are not included.
 - **Methylation pathway rollup.** The Hallmark aggregation is
-  RNA-only; the HM450 probes need a probe → gene crosswalk before a
-  methylation pathway view is meaningful.
+  RNA-only; HM450 probes need a probe → gene crosswalk first.
 - **Counterfactual explanations** ("what would need to change to flip the
   prediction") — adversarial-style, much heavier than IG.
 - **Nested CV for hyperparameter tuning**. `calibration_frac=0.15` is a

@@ -128,6 +128,7 @@ class DMOIModel(nn.Module):
         pole_order: tuple[str, str] = ("LumA", "LumB"),
         use_disagreement: bool = True,
         n_pathways: int = 0,
+        pathway_proj_dim: int | None = None,
     ) -> None:
         super().__init__()
         if set(pole_order) != set(pole_masks):
@@ -176,15 +177,18 @@ class DMOIModel(nn.Module):
         # learnable softmax distribution over Hallmark pathways is fit
         # per pole. The per-pole pathway feature is concatenated into
         # the ClassifierHead input. n_pathways=0 (default) restores v0.6.
+        # v0.8 Variant C: pathway_proj_dim>0 promotes the scalar-per-pole
+        # feature to a vector-per-pole projection so the head can read
+        # per-pathway direction signals, not just aggregate magnitude.
         self.pathway_attention: PathwayPoleAttention | None = None
         n_pole_pathway_feats = 0
         if n_pathways > 0:
             self.pathway_attention = PathwayPoleAttention(
                 n_pathways=n_pathways,
                 pole_order=pole_order,
+                proj_dim=pathway_proj_dim,
             )
-            # One scalar per pole feeds the head.
-            n_pole_pathway_feats = len(pole_order)
+            n_pole_pathway_feats = self.pathway_attention.out_dim
 
         # Final classifier head. The ablation flag controls whether the
         # disagreement scalar is included as an input feature.

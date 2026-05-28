@@ -115,12 +115,15 @@ class PathwayPoleAttention(nn.Module):
         n_pathways: int,
         pole_order: Sequence[str],
         init_std: float = 0.5,
+        proj_dim: int | None = None,
     ) -> None:
         super().__init__()
         if not pole_order:
             raise ValueError("pole_order must be non-empty")
         if n_pathways <= 0:
             raise ValueError(f"n_pathways must be > 0, got {n_pathways}")
+        if proj_dim is not None and proj_dim <= 0:
+            raise ValueError(f"proj_dim must be > 0 or None, got {proj_dim}")
         self.pole_order: tuple[str, ...] = tuple(pole_order)
         self.n_pathways = n_pathways
         # v0.7.1 Phase B: init_std default raised 0.01 -> 0.5 so each pole's
@@ -130,11 +133,42 @@ class PathwayPoleAttention(nn.Module):
         self.attn_logits = nn.Parameter(
             torch.randn(len(self.pole_order), n_pathways) * init_std,
         )
+        # v0.8 Variant C: optional per-pole linear projection from the
+        # attention-gated pathway vector (n_pathways) to a richer feat (proj_dim).
+        # If proj_dim is None, the module returns a single scalar per pole
+        # (v0.7.1 behavior). If proj_dim > 0, each pole gets its own
+        # nn.Linear(n_pathways, proj_dim, bias=False) so the classifier head
+        # can read per-pathway direction signals, not just aggregate magnitude.
+        # Total parameter add: n_poles * n_pathways * proj_dim (e.g. 50*50*16=40K
+        # for the default LumA+LumB / 50 Hallmark / proj_dim=16).
+        self.proj_dim = proj_dim
+        if proj_dim is None:
+            self.projections = None
+        else:
+            self.projections = nn.ModuleDict({
+                pole: nn.Linear(n_pathways, proj_dim, bias=False)
+                for pole in self.pole_order
+            })
+            # Init each pole's projection rows from small Gaussian so different
+            # pathways contribute different signals to the head from epoch 1.
+            for proj in self.projections.values():
+                nn.init.normal_(proj.weight, mean=0.0, std=0.1)
 
     @property
     def attn_weights(self) -> torch.Tensor:
         """Softmax-normalized attention per pole. Shape (n_poles, n_pathways)."""
         return torch.softmax(self.attn_logits, dim=-1)
+
+    @property
+    def out_dim(self) -> int:
+        """Total flattened pole_pathway_feat dimension.
+
+        Scalar mode (proj_dim=None): n_poles (one scalar per pole).
+        Vector mode (proj_dim>0):    n_poles * proj_dim.
+        """
+        if self.proj_dim is None:
+            return len(self.pole_order)
+        return len(self.pole_order) * self.proj_dim
 
     def forward(self, pathway_scores: torch.Tensor) -> torch.Tensor:
         """Compute per-pole pathway feature.
@@ -143,9 +177,10 @@ class PathwayPoleAttention(nn.Module):
             pathway_scores: (batch, n_pathways).
 
         Returns:
-            (batch, n_poles) -- per-patient per-pole pathway feature
-            (scalar per pole; expand later if a richer feature is
-            needed).
+            (batch, out_dim) flat tensor. In scalar mode out_dim=n_poles
+            (one scalar per pole); in vector mode (proj_dim>0) out_dim
+            =n_poles * proj_dim (each pole's projected vector flattened
+            in pole_order order).
         """
         if pathway_scores.ndim != 2:
             raise ValueError(
@@ -157,8 +192,21 @@ class PathwayPoleAttention(nn.Module):
                 f"pathway_scores cols {pathway_scores.shape[1]} != "
                 f"n_pathways {self.n_pathways}",
             )
-        # (batch, P) = (batch, K) @ (K, P)
-        return pathway_scores @ self.attn_weights.T
+        if self.projections is None:
+            # Scalar mode: (batch, P) = (batch, K) @ (K, P)
+            return pathway_scores @ self.attn_weights.T
+        # Vector mode: for each pole P,
+        #   gated_P[b, k] = pathway_scores[b, k] * attn_weights[P, k]
+        #   pole_vec_P[b, :] = Linear_P(gated_P[b, :])
+        # Stack along the pole dim and flatten to (batch, n_poles * proj_dim).
+        attn = self.attn_weights  # (n_poles, n_pathways)
+        per_pole_outs: list[torch.Tensor] = []
+        for p_idx, pole in enumerate(self.pole_order):
+            gated = pathway_scores * attn[p_idx]  # (batch, n_pathways)
+            per_pole_outs.append(self.projections[pole](gated))  # (batch, proj_dim)
+        # (batch, n_poles, proj_dim) -> flatten
+        stacked = torch.stack(per_pole_outs, dim=1)
+        return stacked.reshape(stacked.shape[0], -1)
 
     def top_k_pathways(
         self,
