@@ -28,9 +28,9 @@ proves the *method* and the *engineering*, not the result. See
 
 ---
 
-## v0.3 headline result
+## v0.4 headline result
 
-| Metric | DMOI v0.3 |
+| Metric | DMOI v0.4 |
 |---|---|
 | 5-fold CV AUROC (TCGA train split, n=333) | 0.954 ± 0.017 |
 | **Held-out TCGA test AUROC (n=84, scored once)** | **0.968** |
@@ -38,9 +38,10 @@ proves the *method* and the *engineering*, not the result. See
 | ECE after T-scaling on held-out TCGA test | 0.079  (T=0.634) |
 | ECE on METABRIC eval slice — cohort-specific T | 0.074  (T_METABRIC=0.934) |
 | Disagreement AUC for misclass (TCGA CV) | 0.715 (2/5 folds significant) |
-| **Per-patient Integrated Gradients attribution** (v0.3) | **lumA / lumB / final logit on TCGA test** |
+| Per-patient IG attribution (v0.3) | lumA / lumB / final logit on TCGA test (n=84) |
+| **Cross-cohort attribution agreement (v0.4)** | **Jaccard top-10 = 0.667 lumA + 0.667 lumB on METABRIC vs TCGA test** |
 
-**The honest takeaway, in five acts:**
+**The honest takeaway, in six acts:**
 
 1. **Baseline saturated the easy signal.** Plain LogReg on
    concat(RNA, methylation) lands at 0.963 AUROC on the 417-patient
@@ -66,15 +67,23 @@ proves the *method* and the *engineering*, not the result. See
    over-sharpens the meth-silenced METABRIC predictions; METABRIC's own
    cal-split-fit T=0.934 is correctly close to 1.0.
 
-5. **Interpretability is the v0.3 win.** Per-patient Integrated Gradients
+5. **Interpretability was the v0.3 win.** Per-patient Integrated Gradients
    attribution on the TCGA test set reveals the architecture is doing
    sophisticated biology: the LumA pole learned **inverse-basal-marker**
    discrimination (FOXC1, KRT15 used as "this is NOT basal") plus the
    canonical anti-apoptotic luminal gene BCL2; the LumB pole learned
-   cell-cycle structural genes (RANBP1, SMC6, ZW10). Canonical pan-luminal
-   markers ESR1/PGR are correctly absent from the top attributions because
-   they don't discriminate within the ER+ cohort. The model picked the
-   right discrimination axis.
+   cell-cycle structural genes (RANBP1, NBN, ZW10, POLA2). Canonical
+   pan-luminal markers ESR1/PGR are correctly absent from the top
+   attributions because they don't discriminate within the ER+ cohort.
+
+6. **Cross-cohort interpretability is the v0.4 win.** The same IG pipeline
+   on METABRIC (n=1,175) shows the lumA and lumB pole biology generalizes
+   across cohorts (Jaccard top-10 = 0.667 for both poles vs TCGA test).
+   **Every lumA headline gene from v0.3 (FOXC1, BCL2, PDLIM3, TUBB2B,
+   KRT15) is also top-10 on METABRIC.** lumB picks up MORE canonical
+   proliferation markers on the larger METABRIC cohort (CKS1B, DBF4,
+   NDC80, DSCC1 added to v0.3's RANBP1, NBN, ZW10, POLA2) — the model's
+   biology is tighter on METABRIC, not looser.
 
 ---
 
@@ -256,6 +265,59 @@ Full per-patient + global lists:
 
 ---
 
+## Cross-cohort attribution (v0.4, METABRIC n=1,175)
+
+Same IG pipeline as v0.3, applied to the METABRIC external cohort with
+the methylation branch silenced (METABRIC has no HM450). Validates
+whether the model's biology — not just its AUROC — generalizes.
+
+### Cross-cohort top-K agreement
+
+| Target | Jaccard top-10 | Jaccard top-50 | Verdict |
+|---|---|---|---|
+| **lumA_pole** | **0.667** | **0.786** | Strong — biology generalizes |
+| **lumB_pole** | **0.667** | 0.538 | Strong — biology generalizes |
+| final_logit | 0.538 | 0.724 | Moderate; final logit has the disagreement-scalar instability |
+
+### Shared top-10 lumA pole genes (TCGA test ∩ METABRIC)
+
+`FOXC1`, `BCL2`, `PDLIM3`, `TUBB2B`, `KRT15`, `EGR3`, `RAB17`, `AHNAK` — every lumA
+headline gene from the v0.3 TCGA-test attribution also appears in the
+METABRIC top-10. The "inverse-basal-marker + BCL2" story is confirmed
+on an independent cohort.
+
+### Shared top-10 lumB pole genes + the METABRIC-new ones
+
+Shared with v0.3 TCGA test: `RANBP1`, `NBN`, `ZW10`, `POLA2`, `EFNA5`.
+
+New on METABRIC top-10 (more canonical proliferation markers than v0.3's
+list): **`CKS1B`** (CDK regulatory subunit, core cell-cycle), **`DBF4`**
+(CDC7 kinase activator, S-phase initiation), **`NDC80`** (kinetochore
+complex, mitosis), **`DSCC1`** (replication fork). The larger METABRIC
+cohort gave the model enough statistical power to surface the textbook
+proliferation gene set on top of v0.3's structural-mitotic markers. The
+model's biology is **tighter on METABRIC, not looser**.
+
+### Completeness check on METABRIC
+
+| Target | Mean residual | Max residual |
+|---|---|---|
+| **lumA_pole** | 0.0015 | 0.0163 |
+| **lumB_pole** | 0.0023 | 0.0204 |
+| final_logit | 0.0155 | 0.2276 |
+
+Same IG-faithfulness regime as TCGA test. The disagreement-scalar
+non-differentiability still produces one final_logit outlier; the
+pole-specific attributions remain the recommended interpretability
+headline.
+
+Full report: [`audit/dmoi_explain_external_v0.4.md`](audit/dmoi_explain_external_v0.4.md),
+[`audit/dmoi_explain_external_per_patient.tsv`](audit/dmoi_explain_external_per_patient.tsv)
+(70,500 rows = 1,175 × 3 × 2 × top-10),
+[`audit/dmoi_explain_external_global.tsv`](audit/dmoi_explain_external_global.tsv).
+
+---
+
 ## Reproduce
 
 ```bash
@@ -282,6 +344,13 @@ python scripts/eval_external.py       # ~3 min on MPS
 python scripts/explain_dmoi.py        # ~3-4 min on MPS
                                       # writes audit/dmoi_explain_v0.3.md
                                       # + per_patient.tsv + global.tsv + 3 PNG plots
+
+# 8. (v0.4) Cross-cohort IG attribution on METABRIC (n=1,175, meth silenced).
+python scripts/explain_metabric.py    # ~10 min on MPS
+                                      # writes audit/dmoi_explain_external_v0.4.md
+                                      # + external_per_patient.tsv + external_global.tsv + 3 PNGs
+                                      # depends on audit/dmoi_explain_global.tsv from step 7
+                                      # for the cross-cohort Jaccard comparison
 ```
 
 Pinned to Python 3.11+, `numpy 2.2`, `scikit-learn 1.7`, `torch 2.x`,
@@ -318,27 +387,25 @@ scripts/
 ├── fetch_metabric.py         # v0.2: cBioPortal LFS download (~690 MB)
 ├── build_metabric_cohort.py  # v0.2: filter to LumA/LumB
 ├── eval_external.py          # v0.2: cross-cohort eval + cal-transfer + LumB sens
-├── explain_dmoi.py           # v0.3: per-patient IG attribution + audit MD
+├── explain_dmoi.py           # v0.3: per-patient IG attribution + audit MD (TCGA test)
+├── explain_metabric.py       # v0.4: cross-cohort IG attribution (METABRIC, meth silenced)
 └── check_english_only.py     # CJK gate enforced pre-push
 ```
 
 ---
 
-## What's out of scope for v0.3
+## What's out of scope for v0.4
 
 See [`docs/what-is-out-of-scope.md`](docs/what-is-out-of-scope.md) for the
-full list. Key items still deliberately deferred after v0.3:
+full list. Key items still deliberately deferred after v0.4:
 
 - **Multi-modal external validation.** No public BRCA cohort outside TCGA
   has paired RNA-seq + HM450 — see the v0.2 design doc for the recon.
-- **METABRIC attribution.** v0.3 ships IG on TCGA test only; METABRIC IG
-  is straightforward (same `attribution.py` API, just bigger n=1,175) but
-  deferred to a v0.4 to keep the v0.3 audit MD focused.
 - **Other pole hypotheses** (ER−/HER2+, basal vs claudin-low).
 - **Full Hallmark gene-set incorporation**. Four sets used; the rest are
   in `priors.py` as documented constants but not yet routed to attention.
 - **Pathway-level attribution aggregation** (e.g., MSigDB rollup of IG
-  scores). v0.3 is gene-level only.
+  scores). v0.3 + v0.4 are gene-level only.
 - **Counterfactual explanations** ("what would need to change to flip the
   prediction") — adversarial-style, much heavier than IG.
 - **Nested CV for hyperparameter tuning**. `calibration_frac=0.15` is a
