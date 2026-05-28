@@ -16,8 +16,14 @@ Typical interpretation:
     T = 1.5 to 3.0   moderately overconfident model, T > 1 softens
     T > 5.0          severely overconfident; check for label noise or
                      data leakage before trusting the calibrated output
-    T < 1.0          underconfident; rare for binary classifiers with
-                     class-balanced training
+    T < 1.0          under-confident; T < 1 sharpens logits. Less common
+                     than over-confidence, but is the regime DMOI POC v0.1
+                     actually falls into (cohort_v2 5-fold mean T ~= 0.56)
+                     -- likely because the dual-pole sub-classifiers and
+                     class-balanced BCE pos_weight together pull logits
+                     toward zero, leaving the model's ranking strong
+                     (AUROC ~= 0.97) but its probability scale compressed
+                     toward 0.5.
 """
 from __future__ import annotations
 
