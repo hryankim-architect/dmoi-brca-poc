@@ -28,20 +28,23 @@ proves the *method* and the *engineering*, not the result. See
 
 ---
 
-## v0.7 headline result (Phase A — honest negative)
+## v0.7.1 headline result (Phase A + Phase B — two-phase honest negative)
 
-| Metric | DMOI v0.7 (Phase A) |
+| Metric | DMOI v0.7.1 |
 |---|---|
 | 5-fold CV AUROC (TCGA train split, n=333) | 0.954 ± 0.017 |
 | **v0.6 reference: TCGA held-out test AUROC** | **0.968** |
-| **v0.7 Phase A: TCGA held-out test AUROC** | **0.957** (Δ −0.011 vs v0.6) |
+| **v0.7 Phase A (standardized inputs)** | **0.957** (Δ −0.011) — collapse |
+| **v0.7 Phase B (raw inputs + warm init)** | **0.960** (Δ −0.009) — learned, wrong basin |
 | **v0.6 reference: METABRIC external AUROC** | **0.909** |
-| **v0.7 Phase A: METABRIC external AUROC** | **0.913** (Δ +0.004 vs v0.6) |
+| **v0.7 Phase A METABRIC** | **0.913** (Δ +0.004) |
+| **v0.7 Phase B METABRIC** | **0.898** (Δ −0.012) |
 | Per-patient IG attribution (v0.3) | lumA / lumB / final logit on TCGA test (n=84) |
 | Cross-cohort attribution agreement (v0.4) | Jaccard top-10 = 0.667 lumA + 0.667 lumB on METABRIC vs TCGA test |
 | Pathway-level aggregation, 5 sets (v0.5) | lumA loads ESTROGEN_RESPONSE ~300× harder than cell-cycle; lumB loads cell-cycle ~45× harder than ER |
-| Full Hallmark catalog rollup, 50 sets (v0.6) | All v0.5 top pathways stay in the top-3 out of 50, on both cohorts. The 5-set rollup wasn't an artifact |
-| **Pathway-pole attention, learnable (v0.7 Phase A)** | **Attention collapsed to uniform (top-5 weights 0.0203–0.0205 vs uniform 0.0200). 0/3 top-3 pathway overlap with v0.6 IG on either pole. AUROC roughly neutral. Documented failure mode of softmax-over-standardized-inputs; Phase B retries with raw expression + warmer init.** |
+| Full Hallmark catalog rollup, 50 sets (v0.6) | All v0.5 top pathways stay in the top-3 out of 50, on both cohorts |
+| **Pathway-pole attention, learnable (v0.7 Phase A)** | Softmax attention collapsed to uniform (top-5 weights 0.0203–0.0205 vs uniform 0.0200). 0/3 v0.6 top-3 overlap. Documented mechanical failure mode of softmax-over-standardized-inputs. |
+| **Pathway-pole attention, fixed inputs + warm init (v0.7 Phase B)** | **Collapse fixed (LumA top weight 0.069 = 3.4× uniform; LumB 0.048 = 2.4× uniform), but the model learned a different basin: WNT/INTERFERON/MTORC1 instead of ER for LumA; KRAS/MTORC1/PEROXISOME instead of E2F/G2M/MYC for LumB. 0/3 v0.6 top-3 overlap. AUROC dropped on both cohorts. Scalar-per-pole softmax dot-product captures pathway *magnitude* variance, not *direction* signal — the next attempt (v0.8 Variant C) projects pole feature scalar → vector to give the head a richer interface.** |
 
 **The honest takeaway, in nine acts:**
 
@@ -112,25 +115,40 @@ proves the *method* and the *engineering*, not the result. See
    The 5-set v0.5 finding wasn't an artifact of which sets were
    loaded.
 
-9. **Learnable pathway-pole attention collapsed to uniform under naive
-   Variant D — v0.7 Phase A honest negative.** v0.7 attempted to
-   replace the hand-picked v0.6 pole masks with a `softmax`-normalized
-   learnable attention over all 50 Hallmark pathways (Variant D from
+9. **Learnable pathway-pole attention — v0.7.1 two-phase honest
+   negative.** v0.7 attempted to replace the hand-picked v0.6 pole
+   masks with a `softmax`-normalized learnable attention over all 50
+   Hallmark pathways (Variant D from
    [`docs/v0.7-design-pathway-attention.md`](docs/v0.7-design-pathway-attention.md)).
-   After 15 epochs of training the learned attention weights spanned
-   0.0203–0.0205 across all 50 pathways and both poles — effectively
-   uniform (1/50 = 0.0200). Zero of the v0.6 top-3 pathways made the
-   v0.7 top-3 on either pole. TCGA AUROC slipped 1.1pp to 0.957;
-   METABRIC AUROC moved up 0.4pp to 0.913 (roughly neutral).
-   Mechanism diagnosed in [`audit/dmoi_v0.7.md`](audit/dmoi_v0.7.md):
-   pathway scores were standardized to zero mean, so uniform attention
-   produced a near-zero per-pole feature, so the classifier head
-   learned to ignore that input, so gradient stopped flowing back to
-   the attention logits — a self-reinforcing equilibrium of
-   uselessness. v0.6 remains the canonical architecture. **Phase B
-   (v0.7.1) retries with raw (un-standardized) pathway expression and
-   warmer init to test whether the architecture can learn the
-   alignment when the gradient signal isn't crushed.**
+   Two phases:
+   * **Phase A** (standardized inputs + tight init): attention
+     collapsed to uniform (top weights 0.0203–0.0205 vs uniform
+     0.0200). Mechanism: zero-centered inputs × uniform softmax
+     produces zero output, head learns to ignore the feature, no
+     gradient flows back to attention — self-reinforcing
+     equilibrium of uselessness.
+   * **Phase B** (raw inputs + warm init): collapse fixed — LumA
+     top weight 0.069 (3.4× uniform), LumB 0.048 (2.4× uniform) —
+     but the model learned a completely different basin than v0.6's
+     IG-derived ranking. 0/3 v0.6 top-3 pathways made the Phase B
+     top-3 on either pole; AUROC dropped on both cohorts. Diagnosis:
+     scalar `pole_pathway_feat = sum_k w_k × mean_expression_k` only
+     captures pathway-magnitude variance across patients, not
+     pathway-direction signal. The LumA-vs-LumB discriminative
+     axis is in direction (ER program up for LumA, cell-cycle up
+     for LumB), not in absolute magnitude.
+
+   Both phases are recorded in [`audit/dmoi_v0.7.md`](audit/dmoi_v0.7.md).
+   v0.6 remains the canonical architecture. **v0.8 attempts Variant
+   C** — project the pole pathway feature from scalar to vector so
+   the head can read per-pathway *direction* signals (each pathway
+   gets a learnable embedding, weighted by the pole's softmax
+   attention). If Variant C also fails to reproduce the v0.6
+   ranking, the v0.7 + v0.8 sequence reads as: "for this particular
+   LumA-vs-LumB classification, the gene-level + post-hoc IG path
+   was the right level of architectural commitment, and adding a
+   trainable pathway-level branch on top is fundamentally redundant
+   with what the gene-level encoder already does."
 
 ---
 
@@ -488,7 +506,7 @@ mean |IG|).
 
 ---
 
-## Learnable pathway-pole attention (v0.7 Phase A — honest negative)
+## Learnable pathway-pole attention (v0.7.1 — two-phase honest negative)
 
 v0.7 tried to replace v0.6's hand-picked Hallmark pole masks with a
 learnable softmax distribution over all 50 Hallmark pathways per pole
@@ -498,64 +516,67 @@ The architecture-level question: *if we let the model decide which
 pathways define each pole, does it rediscover v0.6's ER-for-LumA /
 cell-cycle-for-LumB alignment from scratch?*
 
-Phase A answer: no, but for an instructive mechanical reason.
+v0.7.1 answer: **no in two distinct ways, each instructive.**
 
-### Result table
+### Phase A — standardized inputs + tight init (collapse)
 
-| Cohort | v0.7 Phase A AUROC | v0.6 reference | Δ |
+| Cohort | AUROC | vs v0.6 |
+|---|---|---|
+| TCGA test | 0.957 | −0.011 |
+| METABRIC  | 0.913 | +0.004 |
+
+Top weights spanned 0.0203 – 0.0205 across all 50 pathways on both
+poles — effectively uniform (1/50 = 0.0200). 0/3 v0.6 top-3 made the
+Phase A top-3. **Mechanism**: pathway scores were standardized to
+zero mean; softmax-uniform attention × zero-centered input = zero
+output; head learns to ignore; no gradient back; attention stays
+uniform forever — a self-reinforcing equilibrium of uselessness.
+
+### Phase B — raw inputs + warm init (collapse fixed; wrong basin)
+
+| Cohort | AUROC | vs v0.6 | vs Phase A |
 |---|---|---|---|
-| TCGA held-out test | 0.957 | 0.968 | −0.011 |
-| METABRIC external | 0.913 | 0.909 | +0.004 |
+| TCGA test | 0.960 | −0.009 | +0.003 |
+| METABRIC  | 0.898 | −0.012 | −0.016 |
 
-| Pole | v0.7 Phase A learned top-3 | v0.6 IG-derived top-3 | Shared |
+Collapse fixed — LumA top weight 0.069 (3.4× uniform), LumB top
+weight 0.048 (2.4× uniform). The attention *learns*. But:
+
+| Pole | Phase B top-3 | v0.6 IG top-3 | Shared |
 |---|---|---|---|
-| LumA | INTERFERON_ALPHA, MTORC1, WNT | ER_EARLY, ER_LATE, IL2_STAT5 | **0 / 3** |
-| LumB | KRAS_UP, MTORC1, PEROXISOME | E2F, G2M, MYC_V1 | **0 / 3** |
+| LumA | WNT, INTERFERON_ALPHA, MTORC1 | ER_EARLY, ER_LATE, IL2_STAT5 | **0 / 3** |
+| LumB | KRAS_UP, MTORC1, PEROXISOME  | E2F, G2M, MYC_V1               | **0 / 3** |
 
-### Mechanism (why collapse?)
+The model learned a completely different basin. AUROC dropped on
+both cohorts. **Diagnosis**: the scalar
+`pole_pathway_feat = sum_k w_k × mean_expression_k(patient)` only
+exposes pathway-*magnitude* variance across patients to the head,
+not pathway-*direction* signal. The LumA-vs-LumB discriminative axis
+is in direction (ER program up for LumA, cell-cycle program up for
+LumB), not in absolute magnitude. So the Phase B attention learns to
+concentrate on high-baseline pathways (WNT, MTORC1, KRAS) that have
+big patient-to-patient variance but no class-discriminative
+direction. AUROC drops because the new branch is competing with the
+gene-level branch and adding noise.
 
-The learned attention weights spanned 0.0203–0.0205 across all 50
-pathways on both poles — effectively uniform (1/50 = 0.0200). The
-"top-3" displayed above are picked among near-tied weights and carry
-no signal. The cause is mechanical:
+### v0.8 plan — Variant C (scalar → vector pole feature)
 
-1. v0.7 standardizes per-patient pathway-expression scores (mean → 0,
-   std → 1) before feeding them into `PathwayPoleAttention`.
-2. With softmax-uniform attention weights, the pole's pathway feature
-   becomes `sum_k (1/50) * standardized_score[k]`, which averages to
-   ~0 across a batch because standardized scores are zero-centered.
-3. The classifier head receives a near-zero pole_pathway_feat for
-   every patient. It learns to ignore that input.
-4. No downstream signal → no gradient back to `attn_logits` → with
-   `wd=1e-4` pulling logits toward zero, the attention stays uniform
-   forever.
+Project `pole_pathway_feat` from `(batch, n_poles)` to
+`(batch, n_poles, proj_dim)` via a learnable linear layer per pole.
+Each pathway then has a learnable embedding (the row of the projection
+matrix), so the head can read per-pathway *direction* signals weighted
+by the pole's attention — not just a single magnitude scalar.
 
-A self-reinforcing equilibrium of uselessness. The TCGA AUROC drop
-(~1.1pp) is consistent with the head having two extra noisy input
-features to learn around; METABRIC's 0.4pp move is within noise.
-
-### v0.7.1 (Phase B) — the planned retry
-
-Two small fixes:
-
-- **Drop the StandardScaler on pathway scores.** Use raw mean
-  expression. Different Hallmark pathways have different baseline
-  means; uniform-attention output is no longer zero-centered, so the
-  head has a signal to grip.
-- **Bump `PathwayPoleAttention.init_std` from 0.01 to 0.5.** Start the
-  attention asymmetrically so gradient has a direction to follow on
-  epoch 1.
-
-If Phase B also collapses, the next step is the Variant C upgrade —
-project the per-pole pathway feature from a scalar to a vector so the
-head has a richer interface into the pathway branch.
+`proj_dim=None` (default) keeps the v0.7.1 scalar path so the
+v0.7.1 release stays reproducible.
 
 ### v0.6 remains canonical
 
-Regardless of Phase B outcome, v0.6 (gene-level pole masks + post-hoc
+Regardless of v0.8 outcome, v0.6 (gene-level pole masks + post-hoc
 Hallmark IG rollup) remains the canonical DMOI architecture and the
-canonical interpretability story. Phase A's negative finding is an
-architecture-experiment lesson; it does not invalidate v0.5 / v0.6.
+canonical interpretability story. The v0.7.1 two-phase finding is a
+recorded architecture-experiment lesson; it does not invalidate
+v0.5 / v0.6.
 
 Full report: [`audit/dmoi_v0.7.md`](audit/dmoi_v0.7.md).
 

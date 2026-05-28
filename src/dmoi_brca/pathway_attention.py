@@ -114,7 +114,7 @@ class PathwayPoleAttention(nn.Module):
         self,
         n_pathways: int,
         pole_order: Sequence[str],
-        init_std: float = 0.01,
+        init_std: float = 0.5,
     ) -> None:
         super().__init__()
         if not pole_order:
@@ -123,7 +123,10 @@ class PathwayPoleAttention(nn.Module):
             raise ValueError(f"n_pathways must be > 0, got {n_pathways}")
         self.pole_order: tuple[str, ...] = tuple(pole_order)
         self.n_pathways = n_pathways
-        # Small symmetric init so softmax starts near uniform.
+        # v0.7.1 Phase B: init_std default raised 0.01 -> 0.5 so each pole's
+        # attention starts asymmetrically. Phase A's 0.01 left the softmax so
+        # close to uniform that the (already-tiny) gradient was overwhelmed
+        # by wd=1e-4 pulling logits toward zero before symmetry could break.
         self.attn_logits = nn.Parameter(
             torch.randn(len(self.pole_order), n_pathways) * init_std,
         )

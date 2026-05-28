@@ -115,20 +115,24 @@ def _score_cohort(
     model,
     rna_scaler,
     meth_scaler,
-    pathway_scaler,
     rna_raw: np.ndarray,
     meth_raw: np.ndarray,
     rna_feature_names: list[str],
     pathways: dict[str, list[str]],
     device,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Standardize + score one cohort. Returns (proba, logits)."""
+    """Standardize gene/meth + compute raw pathway scores + score. Returns (proba, logits).
+
+    v0.7.1 Phase B: pathway scores are computed from raw RNA expression
+    (not standardized) and fed to the model unscaled. See train.py for
+    the matching change.
+    """
     rna = rna_scaler.transform(rna_raw).astype(np.float32)
     meth = meth_scaler.transform(meth_raw).astype(np.float32)
-    path_raw, _ = compute_pathway_expression_scores(
-        rna, rna_feature_names, pathways,
+    path, _ = compute_pathway_expression_scores(
+        rna_raw, rna_feature_names, pathways,
     )
-    path = pathway_scaler.transform(path_raw).astype(np.float32)
+    path = path.astype(np.float32)
     x_rna = torch.from_numpy(rna).to(device)
     x_meth = torch.from_numpy(meth).to(device)
     x_path = torch.from_numpy(path).to(device)
@@ -241,8 +245,8 @@ def main() -> int:
     if result.model is None or result.rna_scaler is None or result.meth_scaler is None:
         sys.stderr.write("ERROR: train_one_fold returned no artifacts.\n")
         return 1
-    if result.pathway_scaler is None or result.pathway_names is None:
-        sys.stderr.write("ERROR: train_one_fold returned no pathway artifacts.\n")
+    if result.pathway_names is None:
+        sys.stderr.write("ERROR: train_one_fold returned no pathway names.\n")
         return 1
     print(f"  v0.7 TCGA test AUROC : {result.best_val_auc:.4f} "
           f"(v0.6 reference: 0.9682)")
@@ -252,7 +256,7 @@ def main() -> int:
     device = next(result.model.parameters()).device
     metab_proba, _ = _score_cohort(
         result.model,
-        result.rna_scaler, result.meth_scaler, result.pathway_scaler,
+        result.rna_scaler, result.meth_scaler,
         ext_X_qn, meth_ext_silenced,
         list(feats.rna_features), hallmark,
         device,
@@ -315,7 +319,7 @@ def main() -> int:
 
     md_path.write_text(
         "# DMOI v0.7 -- Pathway-pole attention (Variant D)\n\n"
-        f"Generated: {ts}\n\n"
+        f"Generated: {ts} (Phase B run -- raw expression + warmer init)\n\n"
         "## Setup\n\n"
         f"- Architecture: v0.6 base + `PathwayPoleAttention(n_pathways=50)`.\n"
         f"  Per-pole softmax over the full v2024.1.Hs Hallmark catalog.\n"

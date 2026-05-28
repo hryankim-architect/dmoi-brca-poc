@@ -1,6 +1,6 @@
 # DMOI v0.7 -- Pathway-pole attention (Variant D)
 
-Generated: 2026-05-28T11:37:50Z
+Generated: 2026-05-28T11:50:10Z (Phase B run -- raw expression + warmer init)
 
 ## Setup
 
@@ -15,8 +15,8 @@ Generated: 2026-05-28T11:37:50Z
 
 | Cohort | v0.7 AUROC | v0.6 reference | Delta |
 |---|---|---|---|
-| TCGA held-out test | 0.9569 | 0.9682 | -0.0113 |
-| METABRIC external  | 0.9132 | 0.9091 | +0.0041 |
+| TCGA held-out test | 0.9595 | 0.9682 | -0.0087 |
+| METABRIC external  | 0.8976 | 0.9091 | -0.0115 |
 
 **Verdict**: AUROC DROPPED.
 
@@ -28,31 +28,31 @@ AUROC was never the success criterion -- the v0.6 baseline is at the LogReg ceil
 
 | Rank | Pathway | softmax weight |
 |---|---|---|
-| 1 | `HALLMARK_INTERFERON_ALPHA_RESPONSE` | 0.0205 |
-| 2 | `HALLMARK_WNT_BETA_CATENIN_SIGNALING` | 0.0205 |
-| 3 | `HALLMARK_MTORC1_SIGNALING` | 0.0204 |
-| 4 | `HALLMARK_ALLOGRAFT_REJECTION` | 0.0203 |
-| 5 | `HALLMARK_CHOLESTEROL_HOMEOSTASIS` | 0.0203 |
-| 6 | `HALLMARK_SPERMATOGENESIS` | 0.0202 |
-| 7 | `HALLMARK_REACTIVE_OXYGEN_SPECIES_PATHWAY` | 0.0202 |
-| 8 | `HALLMARK_OXIDATIVE_PHOSPHORYLATION` | 0.0202 |
-| 9 | `HALLMARK_ANDROGEN_RESPONSE` | 0.0202 |
-| 10 | `HALLMARK_MITOTIC_SPINDLE` | 0.0202 |
+| 1 | `HALLMARK_WNT_BETA_CATENIN_SIGNALING` | 0.0689 |
+| 2 | `HALLMARK_INTERFERON_ALPHA_RESPONSE` | 0.0591 |
+| 3 | `HALLMARK_MTORC1_SIGNALING` | 0.0383 |
+| 4 | `HALLMARK_ALLOGRAFT_REJECTION` | 0.0362 |
+| 5 | `HALLMARK_CHOLESTEROL_HOMEOSTASIS` | 0.0300 |
+| 6 | `HALLMARK_SPERMATOGENESIS` | 0.0285 |
+| 7 | `HALLMARK_APOPTOSIS` | 0.0282 |
+| 8 | `HALLMARK_UV_RESPONSE_DN` | 0.0261 |
+| 9 | `HALLMARK_ANDROGEN_RESPONSE` | 0.0256 |
+| 10 | `HALLMARK_INFLAMMATORY_RESPONSE` | 0.0247 |
 
 ### LumB
 
 | Rank | Pathway | softmax weight |
 |---|---|---|
-| 1 | `HALLMARK_MTORC1_SIGNALING` | 0.0205 |
-| 2 | `HALLMARK_PEROXISOME` | 0.0204 |
-| 3 | `HALLMARK_KRAS_SIGNALING_UP` | 0.0203 |
-| 4 | `HALLMARK_XENOBIOTIC_METABOLISM` | 0.0203 |
-| 5 | `HALLMARK_P53_PATHWAY` | 0.0203 |
-| 6 | `HALLMARK_UNFOLDED_PROTEIN_RESPONSE` | 0.0203 |
-| 7 | `HALLMARK_HEME_METABOLISM` | 0.0202 |
-| 8 | `HALLMARK_PANCREAS_BETA_CELLS` | 0.0202 |
-| 9 | `HALLMARK_ALLOGRAFT_REJECTION` | 0.0202 |
-| 10 | `HALLMARK_SPERMATOGENESIS` | 0.0202 |
+| 1 | `HALLMARK_MTORC1_SIGNALING` | 0.0475 |
+| 2 | `HALLMARK_KRAS_SIGNALING_UP` | 0.0461 |
+| 3 | `HALLMARK_PEROXISOME` | 0.0400 |
+| 4 | `HALLMARK_XENOBIOTIC_METABOLISM` | 0.0391 |
+| 5 | `HALLMARK_P53_PATHWAY` | 0.0380 |
+| 6 | `HALLMARK_PANCREAS_BETA_CELLS` | 0.0337 |
+| 7 | `HALLMARK_HEME_METABOLISM` | 0.0336 |
+| 8 | `HALLMARK_COAGULATION` | 0.0310 |
+| 9 | `HALLMARK_ANGIOGENESIS` | 0.0289 |
+| 10 | `HALLMARK_TNFA_SIGNALING_VIA_NFKB` | 0.0289 |
 
 ## v0.6 (post-hoc IG) vs v0.7 (learned attention) -- top-3 agreement
 
@@ -68,72 +68,104 @@ v0.6 top-3 per pole comes from `audit/dmoi_pathway_v0.6.md` (50-set Hallmark IG 
 - `softmax weight` -- each pole's attention weights sum to 1.0 across the 50 pathways. Weight = 0.02 means "uniform" (1/50). Anything above 0.05 is a meaningful preference; above 0.20 is strong concentration.
 - Agreement count is informational, not a hypothesis test. With 50 pathways the chance of a random 3-set match is (50 choose 3 with k hits) -- not zero but small.
 
-## The finding: softmax-attention collapse (Phase A honest negative)
+## Two-phase architecture experiment
 
-The learned attention weights span ~0.0203 to 0.0205 -- effectively
-uniform (1 / 50 = 0.0200). The model did not differentiate the
-pathways at all. The displayed "top-3" pathways are picked among
-near-tied weights and carry no signal.
+v0.7 ran in two phases to isolate the failure mode cleanly.
 
-This is a known architectural failure mode, and Phase A documents it
-faithfully. The cause is mechanical, not biological:
+### Phase A -- standardized inputs + tight init (collapse)
 
-1. v0.7 standardizes the per-patient pathway-expression scores
-   (per-pathway mean → 0, std → 1) before feeding them into
-   `PathwayPoleAttention`.
-2. With softmax-uniform attention weights, the pole's pathway feature
-   is `sum_k (1/50) * standardized_pathway_score[k]`. Across a batch
-   this averages to ~0 because standardized scores are zero-centered.
-3. The classifier head sees a near-zero pole_pathway_feat for every
-   patient. It learns to ignore the feature (the head's first linear
-   collapses that input dim's weight toward zero).
-4. With no downstream signal flowing through pole_pathway_feat, the
-   gradient back to `attn_logits` is tiny. Combined with `wd=1e-4`
-   pulling logits toward zero, the attention stays uniform forever.
+| Cohort | AUROC | vs v0.6 |
+|---|---|---|
+| TCGA test  | 0.957 | -0.011 |
+| METABRIC   | 0.913 | +0.004 |
 
-It is a self-reinforcing equilibrium of uselessness: uniform attention
-produces zero signal, zero signal teaches the head to ignore, ignoring
-zeros out the gradient.
+- Top weights spanned 0.0203 -- 0.0205 across all 50 pathways on
+  both poles, i.e. effectively uniform (1 / 50 = 0.0200).
+- 0 of 3 v0.6 IG top pathways made the v0.7 Phase A top-3.
+- **Mechanism**: pathway scores were standardized to zero mean before
+  feeding `PathwayPoleAttention`. Softmax-uniform attention multiplied
+  by a zero-centered input produced a near-zero per-pole feature,
+  which the classifier head learned to ignore, which zeroed out the
+  gradient flowing back to the attention. Combined with `wd=1e-4`
+  pulling logits toward zero, the attention stayed uniform forever --
+  a self-reinforcing equilibrium of uselessness.
 
-The drop in TCGA AUROC (~1.1pp) is consistent with the head having
-two extra noisy input features it has to learn to ignore. The
-METABRIC AUROC moving up by 0.4pp is within run-to-run noise.
+### Phase B -- raw expression + warmer init (collapse fixed; different basin learned)
 
-## Phase B plan (next release, v0.7.1)
+| Cohort | AUROC | vs v0.6 | vs Phase A |
+|---|---|---|---|
+| TCGA test  | 0.960 | -0.009 | +0.003 |
+| METABRIC   | 0.898 | -0.012 | -0.016 |
 
-Two fixes to the v0.7 minimal Variant D, both small:
+- Top weights now differentiate: LumA top weight 0.069 (3.4x uniform);
+  LumB top weight 0.048 (2.4x uniform).
+- 0 of 3 v0.6 IG top pathways still make the v0.7 Phase B top-3 on
+  either pole. The model learned an entirely different ranking.
+- **Mechanism**: with raw mean expression as input, uniform attention
+  no longer produces zero output -- the head gets a non-zero feature
+  with variance across patients, gradient flows, attention learns.
+  But what it learns is **magnitude-driven** rather than
+  **direction-driven**. The scalar `pole_pathway_feat = sum_k w_k *
+  mean_expression_k(patient)` rewards pathways whose member genes
+  have high absolute expression baseline (WNT_BETA_CATENIN,
+  INTERFERON_ALPHA, MTORC1, KRAS_UP, PEROXISOME -- all pathways with
+  high-magnitude expression profiles). The LumA-vs-LumB discriminative
+  signal, however, is in the *direction* (ER program up for LumA,
+  cell-cycle program up for LumB), not in absolute magnitude. So the
+  Phase B attention learns to discriminate based on a signal that is
+  not class-discriminative, and AUROC drops on both cohorts.
 
-1. **Drop the StandardScaler on pathway scores.** Use raw per-patient
-   mean expression. Different pathways will have different baselines
-   (some genes are highly expressed, some are lowly), and uniform
-   attention will produce a non-zero per-patient pole feature with
-   discriminative variance across patients.
-2. **Increase `init_std` from 0.01 to 0.5.** Start the attention
-   weights asymmetrically so gradient has a direction to follow on the
-   first epoch. The current init is so tight that any tiny gradient
-   gets washed out by weight decay before symmetry breaks.
+The fix doesn't undo the failure mode -- it shifts it from
+"collapse" to "wrong-basin". Both findings are publishable.
 
-If Phase B still shows uniform attention with these fixes, the next
-step is to project the pole_pathway_feat per pole from scalar to
-vector (Variant C-lite), so the head has a richer interface into the
-pathway branch.
+### Lesson candidates
 
-## v0.6 baseline remains canonical
+- **Lvarphi candidate (softmax-attention collapse under standardized
+  inputs)** -- documented in Phase A. Softmax-mixed input
+  architectures need the mixed feature output to be non-zero under
+  uniform weights, or no gradient flows back to the attention.
+  Currently 1 occurrence in DMOI v0.7 Phase A; scaffold-template
+  promotion requires a 2nd independent occurrence.
+- **(provisional, post-v0.7.1) scalar-pole softmax captures
+  magnitude not direction** -- documented in Phase B. A `(batch,
+  n_poles) = pathway_scores @ attn_weights.T` projection has only
+  the per-pole pathway *magnitude* as discriminative axis. Direction
+  signals (which pole-relevant pathway is up vs down per patient)
+  require either a per-pathway projection (Variant C) or auxiliary
+  pathway-direction supervision.
 
-Regardless of Phase B outcome, v0.6 (gene-level pole masks +
-post-hoc Hallmark IG rollup) remains the canonical architecture and
-interpretability story for DMOI. Phase A's negative finding does not
-change the AUROC narrative or the v0.6 pathway-level interpretability
-claim.
+## v0.8 plan -- Variant C
+
+Project `pole_pathway_feat` from scalar -- (batch, n_poles) -- to
+vector -- (batch, n_poles, proj_dim). Architecture sketch:
+
+```
+pathway_scores  in  (batch, n_pathways)
+attn_weights    in  (n_poles, n_pathways)  (softmax-normalized per pole)
+for each pole P:
+    gated_P[batch, k] = pathway_scores[batch, k] * attn_weights[P, k]
+    pole_vec_P[batch, :] = Linear(n_pathways, proj_dim)(gated_P)
+pole_pathway_feat[batch, P, :] = pole_vec_P
+```
+
+The head sees a `(batch, n_poles * proj_dim)` flattened vector.
+Each pathway gets a learnable embedding (the row of the projection
+matrix), so the head can read per-pathway direction signals weighted
+by the pole's attention.
+
+Backward-compatibility: `proj_dim=None` (default) keeps the v0.7.1
+scalar path so existing scripts and checkpoints continue to work.
 
 ## Honest scope
 
 - Single-fold final-model run (no CV). The v0.7 architecture diff is what's under test; held-out test scoring matches the v0.6 protocol.
-- The pathway branch sees a per-pole scalar feature (weighted-sum of the 50 pathway-mean expressions). A richer projection (per-pole vector instead of scalar) is a Variant C upgrade, deferred to v0.8+ if Phase B also collapses.
+- The pathway branch sees a per-pole scalar feature (weighted-sum of the 50 pathway-mean expressions). A richer projection (per-pole vector instead of scalar) is the v0.8 Variant C upgrade.
 - Gene-level interpretation (v0.3 / v0.4 IG) is unaffected -- the gene-level branch is unchanged from v0.6.
 
 ## Reproduce
 
 ```bash
-python scripts/eval_dmoi_v0.7.py
+python scripts/eval_dmoi_v0.7.py  # Phase B (current)
+# To reproduce Phase A, revert the v0.7.1 patches to train.py +
+# pathway_attention.py (StandardScaler back; init_std back to 0.01).
 ```

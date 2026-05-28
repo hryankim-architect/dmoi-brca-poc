@@ -223,27 +223,34 @@ def train_one_fold(
         from dmoi_brca.pathway_attention import (
             compute_pathway_expression_scores,
         )
-        path_tr_raw, pathway_names_out = compute_pathway_expression_scores(
-            rna_tr, rna_feature_names, pathway_genes,
+        # v0.7.1 Phase B fix: compute pathway scores from RAW (un-standardized)
+        # RNA so different Hallmark pathways carry their natural baseline
+        # variance. v0.7 Phase A standardized the RNA before pathway-score
+        # computation AND then re-standardized the pathway scores, which made
+        # the uniform-attention output zero-centered and crushed the gradient
+        # signal -- "softmax-attention collapse" (lesson Lvarphi candidate).
+        # Phase B uses raw mean expression per pathway: different pathways
+        # have different absolute baselines, so uniform-attention output has
+        # patient-to-patient variance for the head to exploit.
+        path_tr, pathway_names_out = compute_pathway_expression_scores(
+            rna_train, rna_feature_names, pathway_genes,
         )
-        path_va_raw, _ = compute_pathway_expression_scores(
-            rna_va, rna_feature_names, pathway_genes,
+        path_va, _ = compute_pathway_expression_scores(
+            rna_val, rna_feature_names, pathway_genes,
         )
-        # Per-pathway StandardScaler so the model sees roughly unit-variance
-        # signals across pathway columns.
-        pathway_scaler = StandardScaler().fit(path_tr_raw)
-        path_tr = pathway_scaler.transform(path_tr_raw).astype(np.float32)
-        path_va = pathway_scaler.transform(path_va_raw).astype(np.float32)
+        path_tr = path_tr.astype(np.float32)
+        path_va = path_va.astype(np.float32)
         X_path_tr = torch.from_numpy(path_tr).to(dev)
         X_path_va = torch.from_numpy(path_va).to(dev)
         if cal_idx_local is not None:
-            path_ca_raw, _ = compute_pathway_expression_scores(
-                rna_scaler.transform(rna_cal_raw).astype(np.float32),
-                rna_feature_names, pathway_genes,
+            path_ca, _ = compute_pathway_expression_scores(
+                rna_cal_raw, rna_feature_names, pathway_genes,
             )
-            path_ca = pathway_scaler.transform(path_ca_raw).astype(np.float32)
-            X_path_cal = torch.from_numpy(path_ca).to(dev)
-        pathway_scaler_out = pathway_scaler
+            X_path_cal = torch.from_numpy(path_ca.astype(np.float32)).to(dev)
+        # No pathway_scaler in Phase B -- raw expression goes straight in.
+        # We still surface `pathway_names_out` so downstream consumers can
+        # interpret `pathway_attention.attn_weights`.
+        pathway_scaler_out = None
         n_pathways = len(pathway_names_out)
 
     # Class-balanced positive weight (LumB pos = label 1).
