@@ -49,14 +49,25 @@ class AttributionResult:
     n_steps: int                          # IG steps used
 
 
-def _select_target_tensor(out: dict, target_name: str) -> torch.Tensor:
-    """Pull the requested scalar tensor out of DMOIModel's forward dict."""
+def _select_target_tensor(
+    out: dict,
+    target_name: str,
+    pole_order: tuple[str, str] = ("LumA", "LumB"),
+) -> torch.Tensor:
+    """Pull the requested scalar tensor out of DMOIModel's forward dict.
+
+    `pole_order[0]` is the "negative-class" pole (default LumA) and
+    `pole_order[1]` is the "positive-class" pole (default LumB). Target
+    names `lumA_pole` / `lumB_pole` are kept as the public API so that
+    cohort-agnostic drivers (v0.6, v0.9) refer to "pole 0" / "pole 1"
+    without caring what the actual class labels are.
+    """
     if target_name == "final_logit":
         return out["logits"]
     if target_name == "lumA_pole":
-        return out["pole_scores"]["LumA"]
+        return out["pole_scores"][pole_order[0]]
     if target_name == "lumB_pole":
-        return out["pole_scores"]["LumB"]
+        return out["pole_scores"][pole_order[1]]
     raise ValueError(
         f"unknown target_name {target_name!r}; "
         "expected final_logit / lumA_pole / lumB_pole",
@@ -71,16 +82,23 @@ def integrated_gradients_dmoi(
     target: str = "final_logit",
     n_steps: int = DEFAULT_N_STEPS,
     device: str = "cpu",
+    pole_order: tuple[str, str] = ("LumA", "LumB"),
 ) -> AttributionResult:
     """Run Integrated Gradients on the chosen DMOI output target.
 
     Args:
-        model:    A trained DMOIModel (forward returns a dict).
-        rna:      (n_samples, n_rna_features) standardized RNA input.
-        meth:     (n_samples, n_meth_features) standardized methylation input.
-        target:   "final_logit" / "lumA_pole" / "lumB_pole".
-        n_steps:  Riemann-sum steps for the IG integral. Default 50.
-        device:   torch device. Default "cpu" (deterministic).
+        model:      A trained DMOIModel (forward returns a dict).
+        rna:        (n_samples, n_rna_features) standardized RNA input.
+        meth:       (n_samples, n_meth_features) standardized methylation input.
+        target:     "final_logit" / "lumA_pole" / "lumB_pole". The
+                    pole names here are positional ("pole 0", "pole 1");
+                    use `pole_order` to map them to the model's actual
+                    pole names (e.g. Luminal/Basal for v0.9).
+        n_steps:    Riemann-sum steps for the IG integral. Default 50.
+        device:     torch device. Default "cpu" (deterministic).
+        pole_order: model's pole order. Default ("LumA", "LumB") for
+                    v0.6 backward-compat. Pass ("Luminal", "Basal") for
+                    v0.9.
 
     Returns:
         AttributionResult with rna/meth attribution + bookkeeping fields.
@@ -102,7 +120,7 @@ def integrated_gradients_dmoi(
 
     def _fwd(r: torch.Tensor, m: torch.Tensor) -> torch.Tensor:
         out = model(r, m)
-        return _select_target_tensor(out, target)
+        return _select_target_tensor(out, target, pole_order)
 
     # Evaluate f(x) and f(baseline) for the completeness check + reporting.
     with torch.no_grad():

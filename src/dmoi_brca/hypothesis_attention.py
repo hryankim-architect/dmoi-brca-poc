@@ -68,16 +68,34 @@ def load_hm450_cis_mapping(path: Path) -> dict[str, set[str]]:
     return mapping
 
 
-def _pole_gene_universe(pole_set_names: Sequence[str]) -> set[str]:
-    """Union the Hallmark gene sets named in `pole_set_names`."""
+def _pole_gene_universe(
+    pole_set_names: Sequence[str],
+    hallmark_sets: dict[str, Sequence[str]] | None = None,
+) -> set[str]:
+    """Union the Hallmark gene sets named in `pole_set_names`.
+
+    Args:
+        pole_set_names: Hallmark set names making up the pole.
+        hallmark_sets:  Optional override of the Hallmark name -> genes
+                        dict. When None (v0.6 default), the hand-picked
+                        5-set `priors.HALLMARK_SETS` is used. Pass the
+                        full 50-set catalog loaded via
+                        `dmoi_brca.hallmark.load_hallmark_gmt(...)` to
+                        unlock the v0.9 Luminal-vs-Basal pole pair (or
+                        any other pole pair that references sets not in
+                        priors.py).
+    """
+    sets_dict: dict[str, Sequence[str]] = (
+        hallmark_sets if hallmark_sets is not None else HALLMARK_SETS
+    )
     universe: set[str] = set()
     for name in pole_set_names:
-        if name not in HALLMARK_SETS:
+        if name not in sets_dict:
             raise KeyError(
                 f"Unknown Hallmark set: {name}. "
-                f"Available: {sorted(HALLMARK_SETS)}",
+                f"Available: {sorted(sets_dict)}",
             )
-        universe.update(HALLMARK_SETS[name])
+        universe.update(sets_dict[name])
     return universe
 
 
@@ -86,13 +104,17 @@ def make_rna_mask(
     pole_set_names: Sequence[str],
     *,
     dtype: torch.dtype = torch.float32,
+    hallmark_sets: dict[str, Sequence[str]] | None = None,
 ) -> torch.Tensor:
     """Build a binary mask of length len(feature_genes) for one pole.
 
     mask[i] = 1.0 if feature_genes[i] is in any Hallmark set named in
     pole_set_names; else 0.0. Returned as a 1-D torch tensor.
+
+    `hallmark_sets` lets callers override `priors.HALLMARK_SETS` with the
+    full 50-set catalog (v0.9+ feature).
     """
-    universe = _pole_gene_universe(pole_set_names)
+    universe = _pole_gene_universe(pole_set_names, hallmark_sets)
     mask_list = [1.0 if g in universe else 0.0 for g in feature_genes]
     return torch.tensor(mask_list, dtype=dtype)
 
@@ -103,6 +125,7 @@ def make_meth_mask(
     pole_set_names: Sequence[str],
     *,
     dtype: torch.dtype = torch.float32,
+    hallmark_sets: dict[str, Sequence[str]] | None = None,
 ) -> torch.Tensor:
     """Build a binary mask of length len(feature_probes) for one pole.
 
@@ -110,7 +133,7 @@ def make_meth_mask(
     hallmark gene universe; else 0.0. Probes not present in the cis_mapping
     are treated as intergenic (mask 0).
     """
-    universe = _pole_gene_universe(pole_set_names)
+    universe = _pole_gene_universe(pole_set_names, hallmark_sets)
     mask_list: list[float] = []
     for probe in feature_probes:
         cis_genes = cis_mapping.get(probe, set())
@@ -157,15 +180,22 @@ def make_pole_masks(
     poles: dict[str, Sequence[str]],
     *,
     dtype: torch.dtype = torch.float32,
+    hallmark_sets: dict[str, Sequence[str]] | None = None,
 ) -> dict[str, PoleMaskSet]:
-    """Convenience builder for both LumA / LumB pole masks at once.
+    """Convenience builder for any number of pole masks at once.
 
     Args:
         feature_genes:    Gene symbols matching the RNA encoder's input dim.
         feature_probes:   HM450 probe IDs matching the meth encoder's input dim.
         cis_mapping:      Output of `load_hm450_cis_mapping(...)`.
         poles:            Dict pole_name -> tuple of Hallmark set names defining the pole.
-                          Typically: {"LumA": POLE_LUMA, "LumB": POLE_LUMB}.
+                          Typically: {"LumA": POLE_LUMA, "LumB": POLE_LUMB} for v0.6,
+                          or {"Luminal": POLE_LUMINAL, "Basal": POLE_BASAL} for v0.9.
+        hallmark_sets:    Optional override of the Hallmark name -> genes dict. When
+                          None (v0.6 default), `priors.HALLMARK_SETS` (5 sets) is used.
+                          Pass the full 50-set catalog loaded via
+                          `dmoi_brca.hallmark.load_hallmark_gmt(...)` to unlock pole
+                          definitions that reference sets outside priors.py.
 
     Returns:
         Dict pole_name -> PoleMaskSet with RNA and meth masks.
@@ -173,8 +203,14 @@ def make_pole_masks(
     return {
         pole_name: PoleMaskSet(
             pole_name=pole_name,
-            rna_mask=make_rna_mask(feature_genes, set_names, dtype=dtype),
-            meth_mask=make_meth_mask(feature_probes, cis_mapping, set_names, dtype=dtype),
+            rna_mask=make_rna_mask(
+                feature_genes, set_names, dtype=dtype,
+                hallmark_sets=hallmark_sets,
+            ),
+            meth_mask=make_meth_mask(
+                feature_probes, cis_mapping, set_names, dtype=dtype,
+                hallmark_sets=hallmark_sets,
+            ),
         )
         for pole_name, set_names in poles.items()
     }

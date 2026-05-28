@@ -128,6 +128,8 @@ def train_one_fold(
     rna_feature_names: Sequence[str] | None = None,
     # v0.8 Variant C: scalar -> vector pole feature.
     pathway_proj_dim: int | None = None,
+    # v0.9: optional pole_order override (default = v0.6 LumA/LumB).
+    pole_order: tuple[str, str] = ("LumA", "LumB"),
 ) -> FoldResult:
     """Train one DMOI model on one fold's data, return per-epoch metrics + best val AUC.
 
@@ -266,6 +268,7 @@ def train_one_fold(
         latent_dim=latent_dim, rna_hidden=rna_hidden, meth_hidden=meth_hidden,
         fuse_hidden=fuse_hidden, fuse_out=fuse_out, head_hidden=head_hidden,
         dropout=dropout, use_disagreement=use_disagreement,
+        pole_order=pole_order,
         n_pathways=n_pathways, pathway_proj_dim=pathway_proj_dim,
     ).to(dev)
     opt = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
@@ -305,17 +308,18 @@ def train_one_fold(
             loss = loss_fn(out["logits"], b_y)
             if aux_weight > 0:
                 # Option A: supervised sub-classifiers.
-                # Convention: label=1 means LumB, label=0 means LumA.
-                # LumA branch should predict P(patient is LumA) = 1 - label.
-                # LumB branch should predict P(patient is LumB) = label.
+                # Convention: label=1 means positive class (e.g. LumB, Basal),
+                # label=0 means negative class (e.g. LumA, Luminal).
+                # Negative-class pole (pole_order[0]) predicts 1 - label.
+                # Positive-class pole (pole_order[1]) predicts label.
                 eps = 1e-7
-                s_luma = out["pole_scores"]["LumA"].clamp(eps, 1.0 - eps)
-                s_lumb = out["pole_scores"]["LumB"].clamp(eps, 1.0 - eps)
-                luma_target = 1.0 - b_y
-                lumb_target = b_y
+                s_neg = out["pole_scores"][pole_order[0]].clamp(eps, 1.0 - eps)
+                s_pos = out["pole_scores"][pole_order[1]].clamp(eps, 1.0 - eps)
+                neg_target = 1.0 - b_y
+                pos_target = b_y
                 aux_loss = (
-                    nn.functional.binary_cross_entropy(s_luma, luma_target)
-                    + nn.functional.binary_cross_entropy(s_lumb, lumb_target)
+                    nn.functional.binary_cross_entropy(s_neg, neg_target)
+                    + nn.functional.binary_cross_entropy(s_pos, pos_target)
                 )
                 loss = loss + aux_weight * aux_loss
             if not torch.isfinite(loss):

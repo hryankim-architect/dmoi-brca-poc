@@ -173,6 +173,23 @@ POLE_LUMB: tuple[str, ...] = (
     "HALLMARK_MYC_TARGETS_V1",
 )
 
+# v0.9: pole-pair for Luminal-lineage vs Basal-lineage classification.
+# These pole names reference Hallmark sets that are NOT in priors.HALLMARK_SETS,
+# so callers must pass the full 50-set catalog from
+# `dmoi_brca.hallmark.load_hallmark_gmt(...)` to `make_pole_masks(...)` via the
+# `hallmark_sets=` kwarg. Without that override these names will raise KeyError
+# (intentional: forces the caller to be explicit about which catalog is in use).
+POLE_LUMINAL: tuple[str, ...] = (
+    "HALLMARK_ESTROGEN_RESPONSE_EARLY",
+    "HALLMARK_ESTROGEN_RESPONSE_LATE",
+    "HALLMARK_ANDROGEN_RESPONSE",
+)
+POLE_BASAL: tuple[str, ...] = (
+    "HALLMARK_EPITHELIAL_MESENCHYMAL_TRANSITION",
+    "HALLMARK_MYC_TARGETS_V1",
+    "HALLMARK_G2M_CHECKPOINT",
+)
+
 HALLMARK_SETS: dict[str, tuple[str, ...]] = {
     "HALLMARK_ESTROGEN_RESPONSE_EARLY": HALLMARK_ESTROGEN_RESPONSE_EARLY,
     "HALLMARK_ESTROGEN_RESPONSE_LATE": HALLMARK_ESTROGEN_RESPONSE_LATE,

@@ -235,7 +235,12 @@ class DMOIModel(nn.Module):
             s_pole[pole] = s
 
         # Disagreement signal between the two pole sub-classifiers.
-        disagreement = disagreement_score(s_pole["LumA"], s_pole["LumB"])
+        # Disagreement uses pole_order positions: pole 0 (negative class)
+        # and pole 1 (positive class). Default v0.6 = LumA / LumB;
+        # v0.9 = Luminal / Basal.
+        disagreement = disagreement_score(
+            s_pole[self.pole_order[0]], s_pole[self.pole_order[1]],
+        )
 
         # v0.7: pathway-pole attention branch.
         pole_pathway_feat: torch.Tensor | None = None
@@ -255,7 +260,8 @@ class DMOIModel(nn.Module):
 
         # Final head.
         logits = self.head(
-            z_fused["LumA"], z_fused["LumB"], disagreement,
+            z_fused[self.pole_order[0]], z_fused[self.pole_order[1]],
+            disagreement,
             pole_pathway_feat=pole_pathway_feat,
         )
 
