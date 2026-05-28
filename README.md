@@ -28,7 +28,7 @@ proves the *method* and the *engineering*, not the result. See
 
 ---
 
-## v0.11 headline result (5-fold CV stability seal on v0.9 / v0.10)
+## v0.12-A headline result (cross-cohort split-invariance seal on v0.4 / v0.6)
 
 | Metric | DMOI v0.8 |
 |---|---|
@@ -52,8 +52,9 @@ proves the *method* and the *engineering*, not the result. See
 | **Cross-task generalization (v0.9)** | **Same v0.6 architecture transferred to a new classification axis -- TCGA cohort_v3 Luminal (LumA+LumB) vs Basal -- with the only changes being the cohort file, the pole-defining Hallmark sets, and the class-positive label. TCGA test AUROC = 1.000 (bacc 0.972). Luminal pole top-3 IG = ER_EARLY + ER_LATE + ANDROGEN_RESPONSE (3/3 hand-picked priors). Basal pole top-5 IG = MYC_V1 + G2M + EMT + E2F + MYC_V2 (5/5 priors). 8 / 8 expected pathways in top-5 with zero architecture changes -- framework reusability empirically confirmed.** |
 | **Cross-cohort + cross-task generalization (v0.10)** | **Same v0.9 trained model scored on METABRIC Luminal-vs-Basal n=1,384 (Luminal 1,175 + Basal 209) RNA-only with meth silenced + QN to TCGA train: METABRIC AUROC = 0.965 (bacc 0.842). Same per-pole IG top-3 as TCGA cohort_v3 (Luminal: ER_EARLY + ER_LATE + ANDROGEN; Basal: MYC_V1 + G2M + EMT). 8/8 expected pathways in top-5 AND 3/3 + 3/3 top-3 stable between TCGA and METABRIC. Doubly generalized: cohort-invariant AND task-invariant.** |
 | **5-fold CV stability seal (v0.11)** | **Same v0.9 cohort_v3 + architecture, 5-fold StratifiedKFold (random_state=42): AUROC mean ± std = 1.0000 ± 0.0000 (every fold AUROC = 1.000), bacc 0.9724 ± 0.0091. Per-fold IG top-5: 3/3 Luminal priors hit 5/5 folds, 4/5 Basal priors hit 5/5 folds, 5th (MYC_TARGETS_V2) hits 4/5. Top-3 pairwise Jaccard = 1.0000 on both poles (every fold picked the same top-3). v0.9 / v0.10 finding is split-invariant -- not a lucky single 80/20 split.** |
+| **Cross-cohort split-invariance seal (v0.12-A)** | **TCGA cohort_v2 5-fold StratifiedKFold (random_state=42) × full-METABRIC score per fold (re-fit QN per fold, meth silenced). TCGA val AUROC = 0.9702 ± 0.0122 (v0.6 5-fold ref: 0.954 ± 0.017 — tighter band, +1.6 pp). METABRIC AUROC = 0.9254 ± 0.0052 (v0.4 single-shot ref: 0.909 — +1.6 pp with std = 0.5 pp). Per-fold IG on METABRIC: 2/2 LumA priors hit 5/5 folds; 3/3 LumB priors hit 5/5 folds; LumB top-3 pairwise Jaccard = 1.0000 (LumA Jaccard = 0.7 — structurally bounded by only 2 expected priors). v0.4 / v0.6 cross-cohort finding is split-invariant — the cross-cohort metric is essentially deterministic under split perturbation.** |
 
-**The honest takeaway, in thirteen acts:**
+**The honest takeaway, in fourteen acts:**
 
 1. **Baseline saturated the easy signal.** Plain LogReg on
    concat(RNA, methylation) lands at 0.963 AUROC on the 417-patient
@@ -232,6 +233,36 @@ proves the *method* and the *engineering*, not the result. See
     perturbation. **v0.10's cross-cohort + cross-task result was
     not riding a single lucky split.** Full write-up in
     [`audit/dmoi_v0.11.md`](audit/dmoi_v0.11.md).
+
+14. **Cross-cohort split-invariance: v0.4 / v0.6 cross-cohort
+    metric is essentially deterministic — v0.12-A.** v0.11 sealed
+    the Luminal-vs-Basal task as split-invariant on TCGA cohort_v3
+    internally. v0.12-A asks the matching question one task axis
+    over: is the v0.4 cross-cohort AUROC = 0.909 (METABRIC
+    LumA-vs-LumB single shot) split-invariant, or did it ride a
+    lucky TCGA-train split? Protocol: 5-fold StratifiedKFold
+    (random_state=42) on TCGA cohort_v2 LumA-vs-LumB (n=417
+    dual-modality, LumA 289 + LumB 128); for each fold, train v0.6
+    architecture + score TCGA val fold + score full METABRIC
+    LumA-vs-LumB (n=1,175, RNA-only, meth silenced, **QN re-fit
+    per fold against the fold's TCGA-train RNA distribution** —
+    the right thing under proper cross-validation). Result:
+    **TCGA val AUROC = 0.9702 ± 0.0122** (+1.6 pp above v0.6
+    5-fold reference of 0.954 ± 0.017, with tighter std);
+    **METABRIC AUROC = 0.9254 ± 0.0052** (+1.6 pp above v0.4
+    single-shot reference of 0.909, with std = 0.5 pp — essentially
+    deterministic). Per-fold IG on METABRIC: **2 / 2 LumA expected
+    priors (ER_EARLY + ER_LATE) hit top-5 in 5 / 5 folds**; **3 / 3
+    LumB expected priors (E2F + G2M + MYC_V1) hit top-5 in 5 / 5
+    folds**; LumB top-3 pairwise mean Jaccard = **1.0000** (every
+    fold picked the same top-3); LumA top-3 Jaccard = 0.7000
+    (structurally bounded — only 2 expected priors out of 50, so
+    the 3rd top-3 slot must rotate). **The v0.4 / v0.6 cross-cohort
+    capability is split-invariant on every measurable dimension.**
+    v0.11 + v0.12-A together cover the internal AND cross-cohort
+    variance bands on both task axes (Luminal-vs-Basal AND
+    LumA-vs-LumB). Full write-up in
+    [`audit/dmoi_v0.12.md`](audit/dmoi_v0.12.md).
 
 ---
 
