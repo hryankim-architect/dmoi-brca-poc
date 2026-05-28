@@ -28,7 +28,7 @@ proves the *method* and the *engineering*, not the result. See
 
 ---
 
-## v0.9 headline result (cross-task generalization on Luminal-vs-Basal)
+## v0.10 headline result (cross-cohort + cross-task generalization)
 
 | Metric | DMOI v0.8 |
 |---|---|
@@ -50,8 +50,9 @@ proves the *method* and the *engineering*, not the result. See
 | **Learnable pathway attention v0.8 Variant C** | **Vector pole feature (proj_dim=16, 17× more pathway-branch parameters than v0.7.1) converged to the SAME wrong basin as v0.7.1. Top-5 weights identical within sub-percentage-point precision on both poles. Interface dimensionality is not the bottleneck — the gene-level branch fully captures discriminative direction, so the pathway branch can only find magnitude variance.** |
 | **Closing conclusion (v0.7+v0.8)** | **3 variants confirmed: gene-level commitment is the right architectural level; pathway view should remain post-hoc interpretation (v0.5/v0.6 IG rollup). v0.6 remains canonical.** |
 | **Cross-task generalization (v0.9)** | **Same v0.6 architecture transferred to a new classification axis -- TCGA cohort_v3 Luminal (LumA+LumB) vs Basal -- with the only changes being the cohort file, the pole-defining Hallmark sets, and the class-positive label. TCGA test AUROC = 1.000 (bacc 0.972). Luminal pole top-3 IG = ER_EARLY + ER_LATE + ANDROGEN_RESPONSE (3/3 hand-picked priors). Basal pole top-5 IG = MYC_V1 + G2M + EMT + E2F + MYC_V2 (5/5 priors). 8 / 8 expected pathways in top-5 with zero architecture changes -- framework reusability empirically confirmed.** |
+| **Cross-cohort + cross-task generalization (v0.10)** | **Same v0.9 trained model scored on METABRIC Luminal-vs-Basal n=1,384 (Luminal 1,175 + Basal 209) RNA-only with meth silenced + QN to TCGA train: METABRIC AUROC = 0.965 (bacc 0.842). Same per-pole IG top-3 as TCGA cohort_v3 (Luminal: ER_EARLY + ER_LATE + ANDROGEN; Basal: MYC_V1 + G2M + EMT). 8/8 expected pathways in top-5 AND 3/3 + 3/3 top-3 stable between TCGA and METABRIC. Doubly generalized: cohort-invariant AND task-invariant.** |
 
-**The honest takeaway, in eleven acts:**
+**The honest takeaway, in twelve acts:**
 
 1. **Baseline saturated the easy signal.** Plain LogReg on
    concat(RNA, methylation) lands at 0.963 AUROC on the 417-patient
@@ -182,6 +183,35 @@ proves the *method* and the *engineering*, not the result. See
     strongest possible cross-task generalization signal: **the v0.6
     framework is empirically task-agnostic within DMOI scope.** Full
     write-up in [`audit/dmoi_v0.9.md`](audit/dmoi_v0.9.md).
+
+12. **Doubly generalized: cross-cohort + cross-task — v0.10.** The
+    v0.9 trained model was scored on the METABRIC cohort_v3
+    (Luminal-vs-Basal, n=1,384: Luminal 1,175 + Basal 209,
+    different patient population, Illumina HT-12 v3 microarray
+    platform, RNA-only with methylation silenced + quantile-normalized
+    to TCGA train RNA per the v0.2 / v0.4 / v0.6 protocol). Result:
+    **METABRIC AUROC = 0.965** (bacc 0.842, vs v0.4 LumA-vs-LumB
+    cross-cohort reference of 0.909). Per-pole IG top-3 on METABRIC
+    is **identical to TCGA cohort_v3**: Luminal pole loads
+    `ER_EARLY` + `ER_LATE` + `ANDROGEN_RESPONSE`; Basal pole loads
+    `MYC_TARGETS_V1` + `G2M_CHECKPOINT` + `EPITHELIAL_MESENCHYMAL_TRANSITION`.
+    8/8 expected priors in METABRIC top-5 AND 3/3 + 3/3 top-3
+    stability between TCGA and METABRIC. The v0.6 framework is
+    **simultaneously** task-invariant and cohort-invariant within
+    DMOI scope. Full write-up in
+    [`audit/dmoi_v0.10.md`](audit/dmoi_v0.10.md). The v0.6 → v0.10
+    sequence now reads as a complete falsifiable architectural
+    inquiry validating four axes of reusability: calibration transfer
+    (v0.1 / v0.2), cross-cohort same-task (v0.4: AUROC 0.909, Jaccard
+    0.667), cross-task same-cohort (v0.9: AUROC 1.000, 8/8 priors),
+    and cross-cohort + cross-task (v0.10: AUROC 0.965, 8/8 priors,
+    3/3 + 3/3 top-3 stable). The v0.7 + v0.8 three-variant
+    architecture experiment further showed that adding a trainable
+    pathway-attention branch is structurally redundant. **Gene-level
+    hypothesis-conditioned attention + hand-picked pole priors +
+    post-hoc Hallmark IG rollup is empirically the right architectural
+    commitment for multi-omics binary subtype classification within
+    DMOI scope.**
 
 ---
 
@@ -733,6 +763,60 @@ Full report: [`audit/dmoi_v0.9.md`](audit/dmoi_v0.9.md).
 
 ---
 
+## Cross-cohort + cross-task generalization (v0.10 -- METABRIC)
+
+v0.4 / v0.6 already validated cross-cohort generalization on the
+LumA-vs-LumB axis (METABRIC RNA-only AUROC 0.909, Jaccard 0.667
+gene-level). v0.9 validated cross-task generalization (Luminal-vs-Basal
+on TCGA, AUROC 1.000, 8/8 priors). v0.10 composes the two: trains the
+v0.9 model on TCGA cohort_v3, scores **METABRIC cohort_v3
+(Luminal-vs-Basal, n=1,384 -- Luminal 1,175 + Basal 209)** with the
+same RNA-only + meth-silenced + QN-to-TCGA protocol from v0.2 / v0.4.
+
+### Result
+
+| Cohort | AUROC | bacc | per-pole IG vs priors |
+|---|---|---|---|
+| TCGA cohort_v3 test (v0.9 reference) | 1.000 | 0.972 | Luminal 3/3 + Basal 5/5 = **8/8** |
+| **METABRIC cohort_v3 external (v0.10)** | **0.965** | **0.842** | **Luminal 3/3 + Basal 5/5 = 8/8** |
+| v0.4 LumA-vs-LumB METABRIC reference | 0.909 | — | — |
+
+| Pole | TCGA test top-3 | METABRIC top-3 | Shared (n / 3) |
+|---|---|---|---|
+| **Luminal** | `ESTROGEN_RESPONSE_EARLY`, `ESTROGEN_RESPONSE_LATE`, `ANDROGEN_RESPONSE` | `ESTROGEN_RESPONSE_EARLY`, `ESTROGEN_RESPONSE_LATE`, `ANDROGEN_RESPONSE` | **3 / 3** |
+| **Basal**   | `MYC_TARGETS_V1`, `G2M_CHECKPOINT`, `EPITHELIAL_MESENCHYMAL_TRANSITION` | `MYC_TARGETS_V1`, `G2M_CHECKPOINT`, `EPITHELIAL_MESENCHYMAL_TRANSITION` | **3 / 3** |
+
+3 / 3 top-3 stability on both poles between TCGA and METABRIC --
+the per-pole biology recovered by the model is cohort-invariant.
+The 5.6 pp METABRIC-AUROC lift over the v0.4 LumA-vs-LumB reference
+(0.965 vs 0.909) reflects the intrinsically easier separability of
+the cross-lineage axis, but the 8/8 expected-prior hit on METABRIC
+is the decisive metric -- the framework is recovering the wired
+biology cleanly across both axes of variation.
+
+### Closure -- v0.6 → v0.10 reads as four-axis framework reusability
+
+| Axis | Evidence | Where |
+|---|---|---|
+| Calibration transfer | Cohort-specific T_TCGA=0.634 vs T_METABRIC=0.934 | v0.1 / v0.2 |
+| Cross-cohort same-task | LumA-vs-LumB METABRIC AUROC 0.909, Jaccard 0.667 | v0.4 |
+| Cross-task same-cohort | Luminal-vs-Basal TCGA AUROC 1.000, 8/8 priors | v0.9 |
+| **Cross-cohort + cross-task** | **Luminal-vs-Basal METABRIC AUROC 0.965, 8/8 priors, 3/3 + 3/3 top-3 stable** | **v0.10** |
+
+The v0.7 + v0.8 three-variant architecture experiment further showed
+that adding a trainable pathway-attention branch is structurally
+redundant (gene-level commitment captures all discriminative
+direction signal). Together, v0.6 → v0.10 read as: **found, tested,
+generalized across cohort, generalized across task, generalized
+across both**. Gene-level hypothesis-conditioned attention +
+hand-picked pole priors + post-hoc Hallmark IG rollup is empirically
+the right architectural commitment for multi-omics binary subtype
+classification within DMOI scope.
+
+Full report: [`audit/dmoi_v0.10.md`](audit/dmoi_v0.10.md).
+
+---
+
 ## Reproduce
 
 ```bash
@@ -796,6 +880,13 @@ python scripts/eval_dmoi_v0.9.py              # ~7 min on MPS
                                               # writes audit/dmoi_v0.9.md
                                               # AUROC 1.000, 8/8 expected priors in top-5 IG
                                               # framework reusability empirically confirmed
+
+# 14. (v0.10) Cross-cohort + cross-task generalization: METABRIC cohort_v3.
+python scripts/build_metabric_cohort_v3.py    # builds data/metabric/cohort_v3.tsv
+python scripts/eval_metabric_v0.10.py         # ~10 min on MPS
+                                              # writes audit/dmoi_v0.10.md
+                                              # METABRIC AUROC 0.965, 8/8 priors, 3/3+3/3 top-3 stable
+                                              # framework reusability across BOTH axes
 ```
 
 Pinned to Python 3.11+, `numpy 2.2`, `scikit-learn 1.7`, `torch 2.x`,
@@ -841,14 +932,16 @@ scripts/
 ├── aggregate_pathway_ig_full.py   # v0.6: full 50-set Hallmark catalog rollup driver
 ├── eval_dmoi_v0.7.py              # v0.7.1 Phase B: scalar pole feature driver
 ├── eval_dmoi_v0.8.py              # v0.8: vector pole feature (Variant C, proj_dim=16) driver
-├── build_cohort_v3.py             # v0.9: Luminal-vs-Basal cohort builder
-├── eval_dmoi_v0.9.py              # v0.9: cross-task generalization driver
+├── build_cohort_v3.py             # v0.9: TCGA Luminal-vs-Basal cohort builder
+├── eval_dmoi_v0.9.py              # v0.9: cross-task generalization driver (TCGA)
+├── build_metabric_cohort_v3.py    # v0.10: METABRIC Luminal-vs-Basal cohort builder
+├── eval_metabric_v0.10.py         # v0.10: cross-cohort + cross-task generalization driver
 └── check_english_only.py     # CJK gate enforced pre-push
 ```
 
 ---
 
-## What's out of scope for v0.9
+## What's out of scope for v0.10
 
 See [`docs/what-is-out-of-scope.md`](docs/what-is-out-of-scope.md) for the
 full list. Key items still deliberately deferred after v0.8:
