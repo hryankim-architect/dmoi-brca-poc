@@ -1,6 +1,6 @@
 # DMOI v0.2 External Validation — METABRIC (RNA-only, Path A')
 
-Generated: 2026-05-28T03:33:29Z
+Generated: 2026-05-28T03:37:14Z
 
 ## Setup
 
@@ -33,6 +33,21 @@ Per-gene quantile normalization maps each METABRIC gene's empirical distribution
 | true LumB | 180 | 295 |
 
 External accuracy: 0.8196  ·  LumB sensitivity: 0.6211  ·  LumB specificity: 0.9543
+
+## Calibration transfer investigation
+
+First v0.2 run applied T fit on TCGA cohort_v2 cal-split (T=0.634) to METABRIC, and it made ECE WORSE — the meth-silenced METABRIC predictions were already reasonably calibrated, and the TCGA T over-sharpened them. To test that, we carved a 15% stratified cal slice out of METABRIC, fit T on it, and applied it to the remaining 85% eval slice. All three ECEs below are computed on the SAME eval slice for an apples-to-apples comparison:
+
+- METABRIC cal slice (15%, stratified): 176 patients (LumA=105, LumB=71)
+- METABRIC eval slice (85%): 999 patients
+
+| Calibration | T | ECE on eval slice |
+|---|---|---|
+| Uncalibrated | 1.000 | 0.0745 |
+| T from TCGA cal-split (naive transfer) | 0.634 | 0.1051 |
+| T from METABRIC cal-split (cohort-specific) | 0.934 | 0.0738 |
+
+Takeaway: **calibration parameters don't blindly transfer across cohorts/modalities.** The TCGA T was fit on a model that had both RNA + methylation; on METABRIC the methylation branch is silenced, so the logit distribution is different and the TCGA T over-sharpens. A METABRIC-specific T does the right thing (closer to 1.0 if naive ECE was already low, sharpens or softens as the cohort actually needs).
 
 ## Honest caveats
 

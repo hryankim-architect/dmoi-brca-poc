@@ -231,6 +231,9 @@ def main() -> int:
     _ = (rna_train_std, ext_X_std, meth_train_std)
 
     # --- Calibrate on cal-split fit inside training, apply to external ---
+    # Naive cross-cohort transfer: take T fit on TCGA cal-split and apply
+    # to METABRIC. (This is what v0.2 first reported; it actually made
+    # ECE worse — see investigation block below.)
     if result.cal_logits is not None and result.cal_labels is not None:
         fit = fit_temperature(result.cal_logits, result.cal_labels)
         T = fit.temperature
@@ -241,8 +244,8 @@ def main() -> int:
         ext_ece_cal = compute_calibration(
             result.val_labels, ext_proba_cal, n_bins=10,
         ).ece
-        print(f"  External T (cal-split n={result.n_cal}) : {T:.3f}")
-        print(f"  External ECE before -> after : "
+        print(f"  External T (TCGA cal-split n={result.n_cal}) : {T:.3f}")
+        print(f"  External ECE before -> after (TCGA T) : "
               f"{ext_ece_uncal:.4f} -> {ext_ece_cal:.4f}")
     else:
         T = float("nan")
@@ -250,6 +253,49 @@ def main() -> int:
             result.val_labels, result.val_proba, n_bins=10,
         ).ece
         ext_ece_cal = float("nan")
+
+    # --- Investigation: cohort-specific T fit on a METABRIC cal-split ---
+    # Carve 15% of METABRIC stratified on y, fit T on it, apply to the
+    # remaining 85% eval slice. Compare ECE three ways on the SAME eval
+    # slice (uncalibrated / TCGA-T / METABRIC-T) so the comparison is
+    # apples-to-apples. Tests whether the T-transfer ECE inversion is
+    # platform-specific or stays meaningful with a cohort-specific T.
+    rng_split = np.random.default_rng(2024)
+    cal_mask = np.zeros(len(result.val_labels), dtype=bool)
+    for class_value in (0, 1):
+        class_idx = np.where(result.val_labels == class_value)[0]
+        n_hold = max(1, int(round(len(class_idx) * 0.15)))
+        chosen = rng_split.choice(class_idx, size=n_hold, replace=False)
+        cal_mask[chosen] = True
+    metab_cal_idx = np.where(cal_mask)[0]
+    metab_eval_idx = np.where(~cal_mask)[0]
+
+    fit_m = fit_temperature(
+        result.val_logits[metab_cal_idx],
+        result.val_labels[metab_cal_idx],
+    )
+    T_metab = fit_m.temperature
+
+    eval_labels = result.val_labels[metab_eval_idx]
+    eval_proba_uncal = result.val_proba[metab_eval_idx]
+    eval_proba_T_tcga = apply_temperature(
+        result.val_logits[metab_eval_idx], T,
+    )
+    eval_proba_T_metab = apply_temperature(
+        result.val_logits[metab_eval_idx], T_metab,
+    )
+    ece_eval_uncal = compute_calibration(eval_labels, eval_proba_uncal, 10).ece
+    ece_eval_T_tcga = compute_calibration(eval_labels, eval_proba_T_tcga, 10).ece
+    ece_eval_T_metab = compute_calibration(eval_labels, eval_proba_T_metab, 10).ece
+    print("\n  --- Cohort-specific calibration (METABRIC cal-split) ---")
+    print(f"  METABRIC cal slice (15%, stratified): {len(metab_cal_idx)} "
+          f"(LumA={int((result.val_labels[metab_cal_idx] == 0).sum())}, "
+          f"LumB={int((result.val_labels[metab_cal_idx] == 1).sum())})")
+    print(f"  METABRIC eval slice (85%): {len(metab_eval_idx)}")
+    print(f"  T_TCGA    = {T:.3f}    T_METABRIC = {T_metab:.3f}")
+    print(f"  ECE on eval slice — uncalibrated : {ece_eval_uncal:.4f}")
+    print(f"  ECE on eval slice — T_TCGA       : {ece_eval_T_tcga:.4f}")
+    print(f"  ECE on eval slice — T_METABRIC   : {ece_eval_T_metab:.4f}")
 
     # --- Confusion matrix on external ---
     ext_pred = (result.val_proba >= 0.5).astype(np.int64)
@@ -309,6 +355,32 @@ def main() -> int:
         f"External accuracy: {ext_acc:.4f}  "
         f"·  LumB sensitivity: {ext_sens:.4f}  "
         f"·  LumB specificity: {ext_spec:.4f}\n\n"
+        "## Calibration transfer investigation\n\n"
+        "First v0.2 run applied T fit on TCGA cohort_v2 cal-split "
+        f"(T={T:.3f}) to METABRIC, and it made ECE WORSE — the meth-silenced "
+        "METABRIC predictions were already reasonably calibrated, and the "
+        "TCGA T over-sharpened them. To test that, we carved a 15% "
+        "stratified cal slice out of METABRIC, fit T on it, and applied "
+        "it to the remaining 85% eval slice. All three ECEs below are "
+        "computed on the SAME eval slice for an apples-to-apples comparison:\n\n"
+        f"- METABRIC cal slice (15%, stratified): {len(metab_cal_idx)} "
+        f"patients (LumA={int((result.val_labels[metab_cal_idx] == 0).sum())}, "
+        f"LumB={int((result.val_labels[metab_cal_idx] == 1).sum())})\n"
+        f"- METABRIC eval slice (85%): {len(metab_eval_idx)} patients\n\n"
+        "| Calibration | T | ECE on eval slice |\n"
+        "|---|---|---|\n"
+        f"| Uncalibrated | 1.000 | {ece_eval_uncal:.4f} |\n"
+        f"| T from TCGA cal-split (naive transfer) | {T:.3f} | "
+        f"{ece_eval_T_tcga:.4f} |\n"
+        f"| T from METABRIC cal-split (cohort-specific) | {T_metab:.3f} | "
+        f"{ece_eval_T_metab:.4f} |\n\n"
+        "Takeaway: **calibration parameters don't blindly transfer "
+        "across cohorts/modalities.** The TCGA T was fit on a model that "
+        "had both RNA + methylation; on METABRIC the methylation branch "
+        "is silenced, so the logit distribution is different and the "
+        "TCGA T over-sharpens. A METABRIC-specific T does the right thing "
+        "(closer to 1.0 if naive ECE was already low, sharpens or softens "
+        "as the cohort actually needs).\n\n"
         "## Honest caveats\n\n"
         "- **Methylation branch is silenced.** METABRIC has no HM450 "
         "data (it's an Illumina HT-12 v3 expression-only cohort). The "
@@ -344,8 +416,13 @@ def main() -> int:
     print(f"  Shared genes               : {overlap['n_shared']}")
     print(f"  External AUROC             : {result.best_val_auc:.4f}")
     print(f"  External BalAcc            : {result.best_val_bacc:.4f}")
-    print(f"  External ECE               : {ext_ece_uncal:.4f} -> "
-          f"{ext_ece_cal:.4f}  (T={T:.3f})")
+    print(f"  External ECE (T_TCGA)      : {ext_ece_uncal:.4f} -> "
+          f"{ext_ece_cal:.4f}  (T_TCGA={T:.3f})")
+    print(f"  T_METABRIC (cohort-fit)    : {T_metab:.3f}")
+    print(f"  ECE on eval slice (85%)    : "
+          f"uncal={ece_eval_uncal:.4f}  "
+          f"T_TCGA={ece_eval_T_tcga:.4f}  "
+          f"T_METABRIC={ece_eval_T_metab:.4f}")
     print(f"  External LumB sensitivity  : {ext_sens:.4f}")
     print(f"  External LumB specificity  : {ext_spec:.4f}")
     return 0
