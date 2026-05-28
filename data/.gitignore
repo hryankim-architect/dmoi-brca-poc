@@ -3,3 +3,6 @@
 !.gitignore
 !manifest.yaml
 !README.md
+# MSigDB Hallmark catalog is small (~48KB) and CC-BY 4.0 - safe to ship
+!msigdb/
+!msigdb/*

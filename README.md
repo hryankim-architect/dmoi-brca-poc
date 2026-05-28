@@ -28,9 +28,9 @@ proves the *method* and the *engineering*, not the result. See
 
 ---
 
-## v0.5 headline result
+## v0.6 headline result
 
-| Metric | DMOI v0.5 |
+| Metric | DMOI v0.6 |
 |---|---|
 | 5-fold CV AUROC (TCGA train split, n=333) | 0.954 ± 0.017 |
 | **Held-out TCGA test AUROC (n=84, scored once)** | **0.968** |
@@ -40,9 +40,10 @@ proves the *method* and the *engineering*, not the result. See
 | Disagreement AUC for misclass (TCGA CV) | 0.715 (2/5 folds significant) |
 | Per-patient IG attribution (v0.3) | lumA / lumB / final logit on TCGA test (n=84) |
 | Cross-cohort attribution agreement (v0.4) | Jaccard top-10 = 0.667 lumA + 0.667 lumB on METABRIC vs TCGA test |
-| **Pathway-level aggregation (v0.5)** | **lumA loads ESTROGEN_RESPONSE ~300× harder than cell-cycle; lumB loads cell-cycle ~45× harder than ER. 3/3 top pathways shared TCGA ↔ METABRIC on both poles.** |
+| Pathway-level aggregation, 5 sets (v0.5) | lumA loads ESTROGEN_RESPONSE ~300× harder than cell-cycle; lumB loads cell-cycle ~45× harder than ER |
+| **Full Hallmark catalog rollup, 50 sets (v0.6)** | **All v0.5 top pathways stay in the top-3 out of 50, on both cohorts. lumA top-3 = ER_EARLY · ER_LATE · IL2_STAT5 (TCGA + METABRIC identical). lumB top-3 = E2F · G2M · MYC_TARGETS_V1 (TCGA + METABRIC same 3 sets). The 5-set rollup wasn't an artifact — the prior survives the catalog widening.** |
 
-**The honest takeaway, in seven acts:**
+**The honest takeaway, in eight acts:**
 
 1. **Baseline saturated the easy signal.** Plain LogReg on
    concat(RNA, methylation) lands at 0.963 AUROC on the 417-patient
@@ -94,6 +95,22 @@ proves the *method* and the *engineering*, not the result. See
    identically on TCGA test AND METABRIC. **The architectural
    hypothesis-conditioning prior was the right inductive bias and the
    model learned to use it.**
+
+8. **The pathway-level finding survives the catalog-widening sanity
+   check — v0.6.** v0.5 rolled IG into the same 5 Hallmark sets that
+   were already routed to the pole masks, which raises the obvious
+   objection: *did the model only score those pathways highly because
+   they were the only ones loaded?* v0.6 answers by loading the full
+   **50-set** MSigDB Hallmark v2024.1.Hs catalog (CC-BY 4.0,
+   checked into `data/msigdb/`) and re-running the rollup. On both
+   TCGA test and METABRIC, **every v0.5 top pathway stays in the
+   v0.6 top-3 out of 50**: lumA pole is still ER_EARLY + ER_LATE
+   (with `IL2_STAT5_SIGNALING` joining as a known ER co-regulator);
+   lumB pole is still `E2F_TARGETS / G2M_CHECKPOINT /
+   MYC_TARGETS_V1` (with `MYC_TARGETS_V2` and `MITOTIC_SPINDLE`
+   appearing immediately below as additional proliferation programs).
+   The 5-set v0.5 finding wasn't an artifact of which sets were
+   loaded.
 
 ---
 
@@ -372,11 +389,82 @@ Only the 5 Hallmark sets in `priors.py` are aggregated. The full
 50-set MSigDB Hallmark catalog would let a wider unsupervised
 pathway-discovery test ("are there *other* pathways the model loaded on
 that we didn't include in the priors?"). Adding a `gmt`-file loader
-+ the full catalog is a v0.6 candidate; for v0.5 the scope is
++ the full catalog was the v0.6 follow-up below; the v0.5 scope was
 "validate the architectural-prior pathways are exactly the ones the
 model uses."
 
 Full report: [`audit/dmoi_pathway_v0.5.md`](audit/dmoi_pathway_v0.5.md).
+
+---
+
+## Full Hallmark catalog rollup (v0.6, all 50 MSigDB Hallmark sets)
+
+v0.5 rolled IG into the 5 Hallmark sets that were already routed to the
+pole masks. The obvious objection: *did those 5 sets win because they
+were the only ones loaded?* v0.6 answers by loading the full 50-set
+**MSigDB Hallmark v2024.1.Hs** catalog
+([`data/msigdb/h.all.v2024.1.Hs.symbols.gmt`](data/msigdb/h.all.v2024.1.Hs.symbols.gmt),
+CC-BY 4.0, ~48 KB, parsed by [`src/dmoi_brca/hallmark.py`](src/dmoi_brca/hallmark.py))
+and re-running the same IG rollup on the same TCGA test split + the
+same METABRIC cohort.
+
+### v0.5 finding survives the 50-set widening
+
+| Target | TCGA test top-3 of 50 | METABRIC top-3 of 50 | v0.5 top-pathway(s) survive? |
+|---|---|---|---|
+| **lumA_pole** | `ESTROGEN_RESPONSE_EARLY`, `ESTROGEN_RESPONSE_LATE`, `IL2_STAT5_SIGNALING` | `ESTROGEN_RESPONSE_EARLY`, `ESTROGEN_RESPONSE_LATE`, `IL2_STAT5_SIGNALING` | **Yes** — both ER sets in top-3 on both cohorts |
+| **lumB_pole** | `MYC_TARGETS_V1`, `E2F_TARGETS`, `G2M_CHECKPOINT` | `E2F_TARGETS`, `G2M_CHECKPOINT`, `MYC_TARGETS_V1` | **Yes** — same 3 cell-cycle sets dominate both cohorts (rank order swaps within a near-tie) |
+| `final_logit` | `ESTROGEN_RESPONSE_EARLY`, `ESTROGEN_RESPONSE_LATE`, `G2M_CHECKPOINT` | `ESTROGEN_RESPONSE_EARLY`, `ESTROGEN_RESPONSE_LATE`, `G2M_CHECKPOINT` | **Yes** — identical top-3 across cohorts |
+
+The 5-set v0.5 finding wasn't an artifact of which sets were loaded.
+
+### New honest secondary findings (only visible with the full catalog)
+
+- **`IL2_STAT5_SIGNALING` joins lumA top-3** on both cohorts (TCGA test
+  mean |IG| 0.00096; METABRIC 0.00101). STAT5 is a known co-regulator
+  of `ESR1` transcriptional activity in luminal breast cancer, so this
+  reads as a biologically coherent secondary signal rather than noise.
+  It's still ~6.6× below ER_EARLY on both cohorts.
+- **`MYC_TARGETS_V2` (rank 4) and `MITOTIC_SPINDLE` (rank 5)** join the
+  lumB top-5 on both cohorts. Both are additional proliferation
+  programs; the model is loading the entire cell-cycle / growth axis,
+  not just one pathway.
+- **No surprise non-proliferation, non-ER pathway** appears in either
+  pole's top-5 — the architectural prior catches the biology that's
+  actually there.
+
+### Pathway-level pole-specificity (full 50-set view)
+
+| Pole | Cohort | Top pathway (mean \|IG\|) | Top "opposite-program" pathway (mean \|IG\|) | Ratio |
+|---|---|---|---|---|
+| **lumA_pole** | TCGA test | `ESTROGEN_RESPONSE_EARLY` (0.00629) | `MYC_TARGETS_V1` (in lumA-top-50 lower tier; see CSV) | dominant ER |
+| **lumA_pole** | METABRIC  | `ESTROGEN_RESPONSE_EARLY` (0.00681) | same                                                     | dominant ER |
+| **lumB_pole** | TCGA test | `MYC_TARGETS_V1` (0.00328)         | `ESTROGEN_RESPONSE_EARLY` (lumB-tier; see CSV)           | dominant cell-cycle |
+| **lumB_pole** | METABRIC  | `E2F_TARGETS` (0.00355)            | same                                                     | dominant cell-cycle |
+
+The exact magnitude ratios drift run-to-run (because each version
+re-trains a fresh model), but the **structure** — lumA pole stacks ER
+at the top, lumB pole stacks cell-cycle at the top — is stable across
+v0.5 (5-set) and v0.6 (50-set) on both cohorts.
+
+### Honest scope (v0.6)
+
+- 50 Hallmark sets loaded — the full v2024.1.Hs catalog. The C2 curated
+  catalog (~5,000 sets) and other MSigDB collections remain out of
+  scope.
+- Aggregation is still RNA-only. METABRIC has no methylation; even on
+  TCGA the methylation features are HM450 probes, not gene symbols, so
+  a Hallmark rollup of methylation IG needs a probe → gene crosswalk
+  before it would be meaningful.
+- The pathway scores are interpretation artifacts. The model still
+  attends to genes, not to pathways. Pathway-level *attention* (feeding
+  pathway embeddings directly into the model) is the natural v0.7+
+  candidate.
+
+Full report: [`audit/dmoi_pathway_v0.6.md`](audit/dmoi_pathway_v0.6.md)
++ six per-(target, cohort) CSVs at
+[`audit/dmoi_pathway_v0.6_*.csv`](audit/) (50 rows each, ranked by
+mean |IG|).
 
 ---
 
@@ -414,10 +502,16 @@ python scripts/explain_metabric.py    # ~10 min on MPS
                                       # depends on audit/dmoi_explain_global.tsv from step 7
                                       # for the cross-cohort Jaccard comparison
 
-# 9. (v0.5) Pathway-level IG aggregation (Hallmark rollup, both cohorts).
+# 9. (v0.5) Pathway-level IG aggregation (5 priors-set rollup, both cohorts).
 python scripts/aggregate_pathway_ig.py  # ~7 min on MPS
                                         # writes audit/dmoi_pathway_v0.5.md
                                         # with cross-cohort top-3 pathway agreement
+
+# 10. (v0.6) Full 50-set Hallmark catalog rollup (closes the 5-set caveat).
+python scripts/aggregate_pathway_ig_full.py  # ~7 min on MPS
+                                              # writes audit/dmoi_pathway_v0.6.md
+                                              # + 6 per-(target, cohort) CSVs with all 50 sets
+                                              # uses data/msigdb/h.all.v2024.1.Hs.symbols.gmt (CC-BY 4.0)
 ```
 
 Pinned to Python 3.11+, `numpy 2.2`, `scikit-learn 1.7`, `torch 2.x`,
@@ -440,6 +534,7 @@ src/dmoi_brca/
 ├── calibration.py          # temperature scaling (LBFGS on log_T)
 ├── attribution.py          # v0.3: Captum-based Integrated Gradients wrapper
 ├── pathway.py              # v0.5: Hallmark-set pathway aggregation of IG attributions
+├── hallmark.py             # v0.6: MSigDB Hallmark gmt-file loader (50 sets, CC-BY 4.0)
 ├── external.py             # v0.2: cross-cohort gene align + QN + meth-silenced helpers
 ├── cohort.py               # cohort construction + 80/20 train/test split
 ├── baseline.py             # sklearn baselines (LogReg, RF)
@@ -457,26 +552,34 @@ scripts/
 ├── eval_external.py          # v0.2: cross-cohort eval + cal-transfer + LumB sens
 ├── explain_dmoi.py           # v0.3: per-patient IG attribution + audit MD (TCGA test)
 ├── explain_metabric.py       # v0.4: cross-cohort IG attribution (METABRIC, meth silenced)
-├── aggregate_pathway_ig.py   # v0.5: Hallmark pathway rollup driver (both cohorts)
+├── aggregate_pathway_ig.py        # v0.5: Hallmark pathway rollup driver (5 priors-sets)
+├── aggregate_pathway_ig_full.py   # v0.6: full 50-set Hallmark catalog rollup driver
 └── check_english_only.py     # CJK gate enforced pre-push
 ```
 
 ---
 
-## What's out of scope for v0.5
+## What's out of scope for v0.6
 
 See [`docs/what-is-out-of-scope.md`](docs/what-is-out-of-scope.md) for the
-full list. Key items still deliberately deferred after v0.5:
+full list. Key items still deliberately deferred after v0.6:
 
 - **Multi-modal external validation.** No public BRCA cohort outside TCGA
   has paired RNA-seq + HM450 — see the v0.2 design doc for the recon.
 - **Other pole hypotheses** (ER−/HER2+, basal vs claudin-low).
-- **Full Hallmark gene-set incorporation in attention.** The five pole-
-  relevant sets are routed to attention and aggregated; the remaining
-  Hallmark sets are constants in `priors.py` but not wired through.
-- **Pathway-level *attention* (vs aggregation).** v0.5 rolls up gene-level
-  IG to pathway scores; it does not feed pathway embeddings directly
-  into the model.
+- **Full Hallmark gene-set incorporation in attention.** v0.6 loads the
+  full 50-set catalog for *aggregation* (post-hoc IG rollup); the
+  pole-mask routing inside attention still uses only the 5
+  hand-picked pole-relevant sets.
+- **Pathway-level *attention* (vs aggregation).** v0.5 / v0.6 roll
+  gene-level IG up to pathway scores; the model does not feed
+  pathway embeddings directly into attention.
+- **Other MSigDB collections.** v0.6 ships Hallmark v2024.1.Hs (50
+  sets). C2 curated (~5,000 sets) and other collections are not
+  included.
+- **Methylation pathway rollup.** The Hallmark aggregation is
+  RNA-only; the HM450 probes need a probe → gene crosswalk before a
+  methylation pathway view is meaningful.
 - **Counterfactual explanations** ("what would need to change to flip the
   prediction") — adversarial-style, much heavier than IG.
 - **Nested CV for hyperparameter tuning**. `calibration_frac=0.15` is a
