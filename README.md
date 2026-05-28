@@ -28,7 +28,7 @@ proves the *method* and the *engineering*, not the result. See
 
 ---
 
-## v0.10 headline result (cross-cohort + cross-task generalization)
+## v0.11 headline result (5-fold CV stability seal on v0.9 / v0.10)
 
 | Metric | DMOI v0.8 |
 |---|---|
@@ -51,8 +51,9 @@ proves the *method* and the *engineering*, not the result. See
 | **Closing conclusion (v0.7+v0.8)** | **3 variants confirmed: gene-level commitment is the right architectural level; pathway view should remain post-hoc interpretation (v0.5/v0.6 IG rollup). v0.6 remains canonical.** |
 | **Cross-task generalization (v0.9)** | **Same v0.6 architecture transferred to a new classification axis -- TCGA cohort_v3 Luminal (LumA+LumB) vs Basal -- with the only changes being the cohort file, the pole-defining Hallmark sets, and the class-positive label. TCGA test AUROC = 1.000 (bacc 0.972). Luminal pole top-3 IG = ER_EARLY + ER_LATE + ANDROGEN_RESPONSE (3/3 hand-picked priors). Basal pole top-5 IG = MYC_V1 + G2M + EMT + E2F + MYC_V2 (5/5 priors). 8 / 8 expected pathways in top-5 with zero architecture changes -- framework reusability empirically confirmed.** |
 | **Cross-cohort + cross-task generalization (v0.10)** | **Same v0.9 trained model scored on METABRIC Luminal-vs-Basal n=1,384 (Luminal 1,175 + Basal 209) RNA-only with meth silenced + QN to TCGA train: METABRIC AUROC = 0.965 (bacc 0.842). Same per-pole IG top-3 as TCGA cohort_v3 (Luminal: ER_EARLY + ER_LATE + ANDROGEN; Basal: MYC_V1 + G2M + EMT). 8/8 expected pathways in top-5 AND 3/3 + 3/3 top-3 stable between TCGA and METABRIC. Doubly generalized: cohort-invariant AND task-invariant.** |
+| **5-fold CV stability seal (v0.11)** | **Same v0.9 cohort_v3 + architecture, 5-fold StratifiedKFold (random_state=42): AUROC mean ± std = 1.0000 ± 0.0000 (every fold AUROC = 1.000), bacc 0.9724 ± 0.0091. Per-fold IG top-5: 3/3 Luminal priors hit 5/5 folds, 4/5 Basal priors hit 5/5 folds, 5th (MYC_TARGETS_V2) hits 4/5. Top-3 pairwise Jaccard = 1.0000 on both poles (every fold picked the same top-3). v0.9 / v0.10 finding is split-invariant -- not a lucky single 80/20 split.** |
 
-**The honest takeaway, in twelve acts:**
+**The honest takeaway, in thirteen acts:**
 
 1. **Baseline saturated the easy signal.** Plain LogReg on
    concat(RNA, methylation) lands at 0.963 AUROC on the 417-patient
@@ -212,6 +213,25 @@ proves the *method* and the *engineering*, not the result. See
     post-hoc Hallmark IG rollup is empirically the right architectural
     commitment for multi-omics binary subtype classification within
     DMOI scope.**
+
+13. **Stability seal: the four-axis result is split-invariant —
+    v0.11.** The natural skeptic's question about v0.9's AUROC =
+    1.000 on the single 80/20 split was: *would this hold under a
+    different split?* v0.11 ran 5-fold StratifiedKFold
+    (random_state=42) on the same TCGA cohort_v3 with identical
+    architecture and priors. **Every fold reached AUROC = 1.000**
+    (mean ± std = 1.0000 ± 0.0000; bacc 0.9724 ± 0.0091). The
+    biology recovery is fold-invariant: 3 / 3 Luminal expected
+    priors hit per-fold IG top-5 in 5 of 5 folds; 4 / 5 Basal
+    expected priors hit 5 of 5 folds; the 5th
+    (`HALLMARK_MYC_TARGETS_V2`) hits 4 of 5. The pairwise mean
+    Jaccard of **1.0000** on both poles means every fold selected
+    the same top-3 pathways. The gene-level architecture commitment
+    plus the Luminal vs Basal lineage signal in cohort_v3 is strong
+    enough that the top-3 is essentially fixed under split
+    perturbation. **v0.10's cross-cohort + cross-task result was
+    not riding a single lucky split.** Full write-up in
+    [`audit/dmoi_v0.11.md`](audit/dmoi_v0.11.md).
 
 ---
 
