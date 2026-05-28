@@ -1,6 +1,6 @@
 # DMOI v0.2 External Validation — METABRIC (RNA-only, Path A')
 
-Generated: 2026-05-28T03:37:14Z
+Generated: 2026-05-28T03:40:34Z
 
 ## Setup
 
@@ -48,6 +48,28 @@ First v0.2 run applied T fit on TCGA cohort_v2 cal-split (T=0.634) to METABRIC, 
 | T from METABRIC cal-split (cohort-specific) | 0.934 | 0.0738 |
 
 Takeaway: **calibration parameters don't blindly transfer across cohorts/modalities.** The TCGA T was fit on a model that had both RNA + methylation; on METABRIC the methylation branch is silenced, so the logit distribution is different and the TCGA T over-sharpens. A METABRIC-specific T does the right thing (closer to 1.0 if naive ECE was already low, sharpens or softens as the cohort actually needs).
+
+## LumB sensitivity investigation
+
+At the default 0.5 threshold the meth-silenced model has LumB sensitivity 0.621 / specificity 0.954 on METABRIC — it calls LumA too often. Two corrections, both reported on the same 85% METABRIC eval slice (n=999):
+
+1. **Bayes class-prior adjustment** (principled, no tuning):
+   - TCGA train LumB prior = 0.306, METABRIC LumB prior = 0.404.
+   - Adjust each METABRIC probability via
+     `adj = p · (π_test/π_train) / (p · (π_test/π_train) + (1-p) · ((1-π_test)/(1-π_train)))`.
+2. **Threshold tuned on METABRIC cal slice** (pragmatic):
+   - Sweep thresholds in [0.30, 0.60] on the 15% METABRIC cal slice, pick the one that maximizes BalAcc on cal.
+   - Best threshold: 0.425 (cal BalAcc 0.8188).
+
+Both then evaluated on the 85% eval slice:
+
+| Strategy | LumB sens | LumB spec | BalAcc | F1 LumB |
+|---|---|---|---|---|
+| Default @0.5 | 0.619 | 0.956 | 0.788 | 0.735 |
+| Bayes prior-adjusted @0.5 | 0.691 | 0.933 | 0.812 | 0.772 |
+| Tuned threshold (0.425) | 0.656 | 0.943 | 0.799 | 0.754 |
+
+Interpretation: the sensitivity asymmetry has two plausible drivers — (1) class-prior shift (METABRIC has ~40% LumB vs TCGA train's ~31%), and (2) modality silencing (the meth branch normally contributes signal toward the harder LumB calls).
 
 ## Honest caveats
 

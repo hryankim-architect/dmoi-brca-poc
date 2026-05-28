@@ -37,7 +37,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
-from sklearn.metrics import roc_auc_score  # noqa: E402
+from sklearn.metrics import balanced_accuracy_score, roc_auc_score  # noqa: E402
 from sklearn.preprocessing import StandardScaler  # noqa: E402
 
 from dmoi_brca.calibration import apply_temperature, fit_temperature  # noqa: E402
@@ -304,6 +304,72 @@ def main() -> int:
     ext_sens = cm["tp"] / max(cm["tp"] + cm["fn"], 1)
     ext_spec = cm["tn"] / max(cm["tn"] + cm["fp"], 1)
 
+    # --- LumB sensitivity investigation -------------------------------------
+    # First v0.2 run showed sens=0.62 / spec=0.95 — model calls LumA too
+    # often on METABRIC. Two tests at @0.5 threshold on the SAME 85% eval
+    # slice as the calibration comparison:
+    #   (1) Bayes class-prior adjustment (principled, no hyperparameter).
+    #   (2) Threshold tuned on the 15% METABRIC cal slice to maximize
+    #       balanced accuracy; applied to the 85% eval slice.
+    pi_train = float(feats.y.mean())
+    pi_metab = float(y_ext.mean())
+
+    def _bayes_adjust(proba: np.ndarray) -> np.ndarray:
+        ratio_pos = pi_metab / pi_train
+        ratio_neg = (1.0 - pi_metab) / (1.0 - pi_train)
+        num = proba * ratio_pos
+        den = num + (1.0 - proba) * ratio_neg
+        # Stable division — proba=0,1 endpoints stay invariant.
+        return num / np.maximum(den, 1e-12)
+
+    eval_proba_bayes = _bayes_adjust(eval_proba_uncal)
+    eval_pred_bayes = (eval_proba_bayes >= 0.5).astype(np.int64)
+    eval_pred_def = (eval_proba_uncal >= 0.5).astype(np.int64)
+
+    # Threshold sweep on cal slice.
+    thresholds = [round(0.30 + 0.025 * i, 3) for i in range(13)]  # 0.30..0.60
+    best_thresh, best_cal_bacc = 0.5, -1.0
+    for t in thresholds:
+        pred_cal = (result.val_proba[metab_cal_idx] >= t).astype(np.int64)
+        bacc = balanced_accuracy_score(result.val_labels[metab_cal_idx], pred_cal)
+        if bacc > best_cal_bacc:
+            best_cal_bacc = bacc
+            best_thresh = t
+    eval_pred_tuned = (eval_proba_uncal >= best_thresh).astype(np.int64)
+
+    def _sens_spec_f1(labels: np.ndarray, pred: np.ndarray) -> dict[str, float]:
+        cm_x = confusion_matrix_table(labels, pred)
+        sens_x = cm_x["tp"] / max(cm_x["tp"] + cm_x["fn"], 1)
+        spec_x = cm_x["tn"] / max(cm_x["tn"] + cm_x["fp"], 1)
+        bacc_x = balanced_accuracy_score(labels, pred)
+        # F1 LumB
+        prec = cm_x["tp"] / max(cm_x["tp"] + cm_x["fp"], 1)
+        rec = sens_x
+        f1 = 2 * prec * rec / max(prec + rec, 1e-12)
+        return {"sens": sens_x, "spec": spec_x, "bacc": bacc_x, "f1_lumB": f1}
+
+    sweep_default = _sens_spec_f1(eval_labels, eval_pred_def)
+    sweep_bayes = _sens_spec_f1(eval_labels, eval_pred_bayes)
+    sweep_tuned = _sens_spec_f1(eval_labels, eval_pred_tuned)
+
+    print("\n  --- LumB sensitivity investigation ---")
+    print(f"  pi_train (TCGA train LumB) = {pi_train:.3f}, "
+          f"pi_metab (METABRIC LumB) = {pi_metab:.3f}")
+    print(f"  threshold tuned on cal slice = {best_thresh:.3f}  "
+          f"(cal BalAcc = {best_cal_bacc:.4f})")
+    print(f"  Default @0.5      : sens={sweep_default['sens']:.3f}  "
+          f"spec={sweep_default['spec']:.3f}  "
+          f"BalAcc={sweep_default['bacc']:.3f}  "
+          f"F1_LumB={sweep_default['f1_lumB']:.3f}")
+    print(f"  Bayes prior-adj   : sens={sweep_bayes['sens']:.3f}  "
+          f"spec={sweep_bayes['spec']:.3f}  "
+          f"BalAcc={sweep_bayes['bacc']:.3f}  "
+          f"F1_LumB={sweep_bayes['f1_lumB']:.3f}")
+    print(f"  Tuned threshold   : sens={sweep_tuned['sens']:.3f}  "
+          f"spec={sweep_tuned['spec']:.3f}  "
+          f"BalAcc={sweep_tuned['bacc']:.3f}  "
+          f"F1_LumB={sweep_tuned['f1_lumB']:.3f}")
+
     # --- Sanity: AUROC recomputed from val_proba in case of float drift ---
     sanity_auc = roc_auc_score(result.val_labels, result.val_proba)
 
@@ -381,6 +447,37 @@ def main() -> int:
         "TCGA T over-sharpens. A METABRIC-specific T does the right thing "
         "(closer to 1.0 if naive ECE was already low, sharpens or softens "
         "as the cohort actually needs).\n\n"
+        "## LumB sensitivity investigation\n\n"
+        f"At the default 0.5 threshold the meth-silenced model has LumB "
+        f"sensitivity {ext_sens:.3f} / specificity {ext_spec:.3f} on METABRIC — "
+        "it calls LumA too often. Two corrections, both reported on the "
+        f"same 85% METABRIC eval slice (n={len(metab_eval_idx)}):\n\n"
+        "1. **Bayes class-prior adjustment** (principled, no tuning):\n"
+        f"   - TCGA train LumB prior = {pi_train:.3f}, "
+        f"METABRIC LumB prior = {pi_metab:.3f}.\n"
+        "   - Adjust each METABRIC probability via\n"
+        "     `adj = p · (π_test/π_train) / (p · (π_test/π_train) + "
+        "(1-p) · ((1-π_test)/(1-π_train)))`.\n"
+        f"2. **Threshold tuned on METABRIC cal slice** (pragmatic):\n"
+        f"   - Sweep thresholds in [0.30, 0.60] on the 15% METABRIC cal "
+        f"slice, pick the one that maximizes BalAcc on cal.\n"
+        f"   - Best threshold: {best_thresh:.3f} (cal BalAcc {best_cal_bacc:.4f}).\n\n"
+        "Both then evaluated on the 85% eval slice:\n\n"
+        "| Strategy | LumB sens | LumB spec | BalAcc | F1 LumB |\n"
+        "|---|---|---|---|---|\n"
+        f"| Default @0.5 | {sweep_default['sens']:.3f} | "
+        f"{sweep_default['spec']:.3f} | {sweep_default['bacc']:.3f} | "
+        f"{sweep_default['f1_lumB']:.3f} |\n"
+        f"| Bayes prior-adjusted @0.5 | {sweep_bayes['sens']:.3f} | "
+        f"{sweep_bayes['spec']:.3f} | {sweep_bayes['bacc']:.3f} | "
+        f"{sweep_bayes['f1_lumB']:.3f} |\n"
+        f"| Tuned threshold ({best_thresh:.3f}) | {sweep_tuned['sens']:.3f} | "
+        f"{sweep_tuned['spec']:.3f} | {sweep_tuned['bacc']:.3f} | "
+        f"{sweep_tuned['f1_lumB']:.3f} |\n\n"
+        "Interpretation: the sensitivity asymmetry has two plausible "
+        "drivers — (1) class-prior shift (METABRIC has ~40% LumB vs "
+        "TCGA train's ~31%), and (2) modality silencing (the meth branch "
+        "normally contributes signal toward the harder LumB calls).\n\n"
         "## Honest caveats\n\n"
         "- **Methylation branch is silenced.** METABRIC has no HM450 "
         "data (it's an Illumina HT-12 v3 expression-only cohort). The "
