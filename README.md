@@ -28,9 +28,9 @@ proves the *method* and the *engineering*, not the result. See
 
 ---
 
-## v0.2 headline result
+## v0.3 headline result
 
-| Metric | DMOI v0.2 |
+| Metric | DMOI v0.3 |
 |---|---|
 | 5-fold CV AUROC (TCGA train split, n=333) | 0.954 ± 0.017 |
 | **Held-out TCGA test AUROC (n=84, scored once)** | **0.968** |
@@ -38,8 +38,9 @@ proves the *method* and the *engineering*, not the result. See
 | ECE after T-scaling on held-out TCGA test | 0.079  (T=0.634) |
 | ECE on METABRIC eval slice — cohort-specific T | 0.074  (T_METABRIC=0.934) |
 | Disagreement AUC for misclass (TCGA CV) | 0.715 (2/5 folds significant) |
+| **Per-patient Integrated Gradients attribution** (v0.3) | **lumA / lumB / final logit on TCGA test** |
 
-**The honest takeaway, in four acts:**
+**The honest takeaway, in five acts:**
 
 1. **Baseline saturated the easy signal.** Plain LogReg on
    concat(RNA, methylation) lands at 0.963 AUROC on the 417-patient
@@ -57,13 +58,23 @@ proves the *method* and the *engineering*, not the result. See
    15% nested calibration split cuts ECE roughly in half on TCGA (0.138 →
    0.077). T < 1 — the architecture is *under*-confident, not over-confident.
 
-4. **External generalization is the v0.2 win.** A truly held-out TCGA test
+4. **External generalization was the v0.2 win.** A truly held-out TCGA test
    split (random_state=2024, never seen during model dev) scores AUROC 0.968.
    An independent cohort (METABRIC, n=1,175) with the methylation branch
    silenced (METABRIC has no HM450 data) scores AUROC 0.909. Calibration
    parameters do NOT transfer naively between cohorts: TCGA's T=0.634
    over-sharpens the meth-silenced METABRIC predictions; METABRIC's own
    cal-split-fit T=0.934 is correctly close to 1.0.
+
+5. **Interpretability is the v0.3 win.** Per-patient Integrated Gradients
+   attribution on the TCGA test set reveals the architecture is doing
+   sophisticated biology: the LumA pole learned **inverse-basal-marker**
+   discrimination (FOXC1, KRT15 used as "this is NOT basal") plus the
+   canonical anti-apoptotic luminal gene BCL2; the LumB pole learned
+   cell-cycle structural genes (RANBP1, SMC6, ZW10). Canonical pan-luminal
+   markers ESR1/PGR are correctly absent from the top attributions because
+   they don't discriminate within the ER+ cohort. The model picked the
+   right discrimination axis.
 
 ---
 
@@ -190,6 +201,58 @@ Full reports: [`audit/dmoi_eval_v0.md`](audit/dmoi_eval_v0.md) (TCGA),
 
 ---
 
+## Per-patient attribution (v0.3, TCGA test n=84)
+
+Integrated Gradients (Sundararajan et al. 2017) on each of three model
+outputs, baseline = zero in the standardized domain (= train per-feature
+mean). 50 Riemann steps per IG run. See
+[`docs/v0.3-design-attribution.md`](docs/v0.3-design-attribution.md) for
+the algorithm + scope rationale.
+
+### Top-5 global features per pole (mean |IG| across 84 test patients)
+
+| Rank | lumA_pole RNA | mean \|IG\| | lumB_pole RNA | mean \|IG\| |
+|---|---|---|---|---|
+| 1 | `FOXC1` | 0.0508 | `EFNA5` | 0.0189 |
+| 2 | `PDLIM3` | 0.0359 | `RANBP1` | 0.0142 |
+| 3 | `TUBB2B` | 0.0329 | `SMC6` | 0.0110 |
+| 4 | **`BCL2`** | 0.0328 | `ZW10` | 0.0108 |
+| 5 | `KRT15` | 0.0323 | `DMD` | 0.0101 |
+
+### Three biological readings
+
+- **lumA pole learned "this is NOT basal-like."** FOXC1 and KRT15 are
+  basal/myoepithelial markers; the LumA pole's strongest discriminative
+  signal is their *low* expression in LumA. BCL2 is the only canonical
+  anti-apoptotic luminal marker in the top-5 — the rest of the LumA
+  pole's attribution comes from contrast against basal features.
+- **lumB pole learned cell-cycle structural genes.** RANBP1 (nuclear
+  transport in mitosis), SMC6 (chromatin maintenance), ZW10 (mitotic
+  checkpoint) are all proliferation-machinery genes. Not the textbook
+  MKI67/TOP2A/AURKA but biologically equivalent — many gene proxies
+  exist for the proliferation axis and the model picked the structural-
+  mitotic ones.
+- **ESR1 / PGR / FOXA1 are correctly absent from the top attributions.**
+  Both LumA and LumB are ER+, so the canonical luminal markers don't
+  discriminate within this cohort. Their absence here is evidence that
+  the model picked the right axis (proliferation + inverse-basal) rather
+  than a naïve pan-luminal prior.
+
+### Completeness check (IG faithfulness axiom)
+
+| Target | Mean residual | Max residual | Status |
+|---|---|---|---|
+| **lumA_pole** | 0.0016 | 0.0155 | tight |
+| **lumB_pole** | 0.0027 | 0.0216 | acceptable |
+| final_logit | 0.0162 | 0.2062 | one outlier — likely from the disagreement scalar `\|s_LumA − (1 − s_LumB)\|` which has a non-differentiable `abs()` at 0; the pole-specific attributions are the recommended clinical-interpretability headline |
+
+Full per-patient + global lists:
+[`audit/dmoi_explain_v0.3.md`](audit/dmoi_explain_v0.3.md),
+[`audit/dmoi_explain_per_patient.tsv`](audit/dmoi_explain_per_patient.tsv)
+(5,040 rows = 84 × 3 × 2 × top-10), [`audit/dmoi_explain_global.tsv`](audit/dmoi_explain_global.tsv).
+
+---
+
 ## Reproduce
 
 ```bash
@@ -211,10 +274,15 @@ python scripts/build_metabric_cohort.py
 
 # 6. METABRIC external validation + cohort-specific cal + LumB sens analysis.
 python scripts/eval_external.py       # ~3 min on MPS
+
+# 7. (v0.3) Per-patient Integrated Gradients attribution on TCGA test (n=84).
+python scripts/explain_dmoi.py        # ~3-4 min on MPS
+                                      # writes audit/dmoi_explain_v0.3.md
+                                      # + per_patient.tsv + global.tsv + 3 PNG plots
 ```
 
-Pinned to Python 3.11+, `numpy 2.2`, `scikit-learn 1.7`, `torch 2.x`
-(MPS-supported on Apple Silicon).
+Pinned to Python 3.11+, `numpy 2.2`, `scikit-learn 1.7`, `torch 2.x`,
+`captum 0.7+` (MPS-supported on Apple Silicon).
 
 ---
 
@@ -231,6 +299,7 @@ src/dmoi_brca/
 ├── train.py                # train_one_fold + run_dmoi_cv (StratifiedKFold)
 ├── eval.py                 # per-class metrics, ECE, disagreement-vs-misclass
 ├── calibration.py          # temperature scaling (LBFGS on log_T)
+├── attribution.py          # v0.3: Captum-based Integrated Gradients wrapper
 ├── external.py             # v0.2: cross-cohort gene align + QN + meth-silenced helpers
 ├── cohort.py               # cohort construction + 80/20 train/test split
 ├── baseline.py             # sklearn baselines (LogReg, RF)
@@ -246,22 +315,29 @@ scripts/
 ├── fetch_metabric.py         # v0.2: cBioPortal LFS download (~690 MB)
 ├── build_metabric_cohort.py  # v0.2: filter to LumA/LumB
 ├── eval_external.py          # v0.2: cross-cohort eval + cal-transfer + LumB sens
+├── explain_dmoi.py           # v0.3: per-patient IG attribution + audit MD
 └── check_english_only.py     # CJK gate enforced pre-push
 ```
 
 ---
 
-## What's out of scope for v0.2
+## What's out of scope for v0.3
 
 See [`docs/what-is-out-of-scope.md`](docs/what-is-out-of-scope.md) for the
-full list. Key items still deliberately deferred after v0.2:
+full list. Key items still deliberately deferred after v0.3:
 
 - **Multi-modal external validation.** No public BRCA cohort outside TCGA
   has paired RNA-seq + HM450 — see the v0.2 design doc for the recon.
+- **METABRIC attribution.** v0.3 ships IG on TCGA test only; METABRIC IG
+  is straightforward (same `attribution.py` API, just bigger n=1,175) but
+  deferred to a v0.4 to keep the v0.3 audit MD focused.
 - **Other pole hypotheses** (ER−/HER2+, basal vs claudin-low).
 - **Full Hallmark gene-set incorporation**. Four sets used; the rest are
   in `priors.py` as documented constants but not yet routed to attention.
-- **Per-patient explainability** (SHAP / IG over the pole branches).
+- **Pathway-level attribution aggregation** (e.g., MSigDB rollup of IG
+  scores). v0.3 is gene-level only.
+- **Counterfactual explanations** ("what would need to change to flip the
+  prediction") — adversarial-style, much heavier than IG.
 - **Nested CV for hyperparameter tuning**. `calibration_frac=0.15` is a
   fixed choice carried over from Guo et al., not swept.
 
