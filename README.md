@@ -213,25 +213,28 @@ the algorithm + scope rationale.
 
 | Rank | lumA_pole RNA | mean \|IG\| | lumB_pole RNA | mean \|IG\| |
 |---|---|---|---|---|
-| 1 | `FOXC1` | 0.0508 | `EFNA5` | 0.0189 |
-| 2 | `PDLIM3` | 0.0359 | `RANBP1` | 0.0142 |
-| 3 | `TUBB2B` | 0.0329 | `SMC6` | 0.0110 |
-| 4 | **`BCL2`** | 0.0328 | `ZW10` | 0.0108 |
-| 5 | `KRT15` | 0.0323 | `DMD` | 0.0101 |
+| 1 | `FOXC1` | 0.0447 | `EFNA5` | 0.0143 |
+| 2 | **`BCL2`** | 0.0323 | `RANBP1` | 0.0104 |
+| 3 | `PDLIM3` | 0.0319 | `NBN` | 0.0100 |
+| 4 | `TUBB2B` | 0.0303 | `ZW10` | 0.0094 |
+| 5 | `EGR3` | 0.0263 | `POLA2` | 0.0087 |
 
 ### Three biological readings
 
-- **lumA pole learned "this is NOT basal-like."** FOXC1 and KRT15 are
-  basal/myoepithelial markers; the LumA pole's strongest discriminative
-  signal is their *low* expression in LumA. BCL2 is the only canonical
-  anti-apoptotic luminal marker in the top-5 — the rest of the LumA
-  pole's attribution comes from contrast against basal features.
-- **lumB pole learned cell-cycle structural genes.** RANBP1 (nuclear
-  transport in mitosis), SMC6 (chromatin maintenance), ZW10 (mitotic
-  checkpoint) are all proliferation-machinery genes. Not the textbook
+- **lumA pole learned "this is NOT basal-like" + the canonical luminal gene.**
+  FOXC1 (basal/myoepithelial transcription factor) anchors the top spot;
+  the LumA pole's strongest discriminative signal is its *low* expression
+  in LumA. BCL2 — the canonical anti-apoptotic luminal marker — ranks
+  second. The rest of the top-5 (PDLIM3, TUBB2B, EGR3) are cytoskeletal /
+  early-response markers that distinguish LumA's lower-proliferation
+  phenotype from LumB.
+- **lumB pole learned cell-cycle + DNA-repair machinery.** RANBP1 (nuclear
+  transport during mitosis), NBN (nibrin / DNA damage response), ZW10
+  (mitotic checkpoint), and POLA2 (DNA polymerase α subunit) are all
+  proliferation- and replication-stress genes. Not the textbook
   MKI67/TOP2A/AURKA but biologically equivalent — many gene proxies
-  exist for the proliferation axis and the model picked the structural-
-  mitotic ones.
+  exist for the proliferation axis and the model picked DNA-damage and
+  mitotic-machinery ones.
 - **ESR1 / PGR / FOXA1 are correctly absent from the top attributions.**
   Both LumA and LumB are ER+, so the canonical luminal markers don't
   discriminate within this cohort. Their absence here is evidence that
@@ -242,9 +245,9 @@ the algorithm + scope rationale.
 
 | Target | Mean residual | Max residual | Status |
 |---|---|---|---|
-| **lumA_pole** | 0.0016 | 0.0155 | tight |
-| **lumB_pole** | 0.0027 | 0.0216 | acceptable |
-| final_logit | 0.0162 | 0.2062 | one outlier — likely from the disagreement scalar `\|s_LumA − (1 − s_LumB)\|` which has a non-differentiable `abs()` at 0; the pole-specific attributions are the recommended clinical-interpretability headline |
+| **lumA_pole** | 0.0023 | 0.0182 | tight |
+| **lumB_pole** | 0.0022 | 0.0112 | tight |
+| final_logit | 0.0205 | 0.3425 | one outlier — likely from the disagreement scalar `\|s_LumA − (1 − s_LumB)\|` which has a non-differentiable `abs()` at 0; the pole-specific attributions are the recommended clinical-interpretability headline |
 
 Full per-patient + global lists:
 [`audit/dmoi_explain_v0.3.md`](audit/dmoi_explain_v0.3.md),
