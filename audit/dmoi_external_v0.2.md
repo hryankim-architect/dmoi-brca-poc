@@ -1,0 +1,50 @@
+# DMOI v0.2 External Validation — METABRIC (RNA-only, Path A')
+
+Generated: 2026-05-28T03:33:29Z
+
+## Setup
+
+- Train cohort  : TCGA-BRCA cohort_v2 train split — 333 patients (LumA=231, LumB=102)
+- External      : METABRIC (Curtis 2012 + Pereira 2016) — 1175 patients (LumA=700, LumB=475)
+- Architecture  : Option A (aux BCE on sub-classifiers, disagreement IN), trained once on full TCGA train.
+- n_epochs      : 15 (CV mean best epoch from Step A; no early stopping, no test-AUC-driven epoch selection).
+- Calibration   : T fit on a stratified 15% cal split of TCGA train; applied to METABRIC logits.
+
+## Cross-cohort alignment
+
+- TCGA HiSeqV2 genes (training-time order) : 20530
+- METABRIC unique Hugo symbols              : 20384
+- Shared                                     : 16890
+- TCGA-only (mean-imputed to 0)              : 3640
+- METABRIC-only (dropped)                    : 3494
+
+Per-gene quantile normalization maps each METABRIC gene's empirical distribution to the TCGA train gene's distribution before the TCGA-fitted StandardScaler is applied.
+
+## Headline external metrics
+
+- **External AUROC** : **0.9095** (sanity recompute: 0.9095)
+- **External BalAcc**: 0.7877
+- **External ECE before T-scaling** : 0.0729
+- **External ECE after T-scaling**  : 0.0992  (T=0.634)
+
+| | pred LumA | pred LumB |
+|---|---|---|
+| true LumA | 668 | 32 |
+| true LumB | 180 | 295 |
+
+External accuracy: 0.8196  ·  LumB sensitivity: 0.6211  ·  LumB specificity: 0.9543
+
+## Honest caveats
+
+- **Methylation branch is silenced.** METABRIC has no HM450 data (it's an Illumina HT-12 v3 expression-only cohort). The methylation pole encoder receives a zero-tensor at inference, so this test does NOT validate the dual-modality story. It validates only that the RNA pole encoder + classifier head generalizes across cohorts.
+- **Platform difference.** TCGA uses HiSeq RNA-seq (FPKM log2 scale); METABRIC uses Illumina HT-12 v3 expression microarray. Quantile normalization is applied per gene, which is the standard correction for cross-platform validation.
+- **Mean-imputed train-only genes.** Genes present in TCGA but not METABRIC are filled with 0 (the post-StandardScaler train mean). This is a permissive choice — the model sees those features as neutral rather than missing.
+- **No multi-modal external validation available on public data.** No public BRCA cohort outside TCGA has paired RNA-seq + HM450 methylation; see `docs/v0.2-design-external-validation.md` for the recon trail.
+
+## Reproduce
+
+```bash
+python scripts/fetch_metabric.py        # one-time ~690 MB download
+python scripts/build_metabric_cohort.py
+python scripts/eval_external.py
+```
