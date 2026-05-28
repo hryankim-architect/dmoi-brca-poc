@@ -30,8 +30,17 @@ from dmoi_brca.hypothesis_attention import PoleAttention, PoleMaskSet
 class ClassifierHead(nn.Module):
     """Final binary classifier head.
 
-    Input is [z_LumA_fused, z_LumB_fused, disagreement_scalar] concatenated
+    Input is [z_LumA_fused, z_LumB_fused, (disagreement_scalar)] concatenated
     along the feature dim. Returns a single logit per sample.
+
+    Args:
+        fuse_dim:          Per-pole fused latent dimension.
+        hidden:            Hidden layer width.
+        dropout:           Dropout rate.
+        use_disagreement:  If True (default), include the disagreement scalar
+                           as an extra input feature. Day-4 ablation toggles
+                           this to False to measure the disagreement signal's
+                           empirical contribution.
     """
 
     def __init__(
@@ -39,9 +48,11 @@ class ClassifierHead(nn.Module):
         fuse_dim: int,
         hidden: int = 32,
         dropout: float = 0.3,
+        use_disagreement: bool = True,
     ) -> None:
         super().__init__()
-        in_dim = 2 * fuse_dim + 1   # two pole latents + disagreement scalar
+        self.use_disagreement = use_disagreement
+        in_dim = 2 * fuse_dim + (1 if use_disagreement else 0)
         self.net = nn.Sequential(
             nn.Linear(in_dim, hidden),
             nn.LayerNorm(hidden),
@@ -56,9 +67,11 @@ class ClassifierHead(nn.Module):
         z_lumb: torch.Tensor,
         disagreement: torch.Tensor,
     ) -> torch.Tensor:
-        # Reshape disagreement (batch,) -> (batch, 1) for concat.
-        d = disagreement.unsqueeze(-1)
-        x = torch.cat([z_luma, z_lumb, d], dim=-1)
+        if self.use_disagreement:
+            d = disagreement.unsqueeze(-1)
+            x = torch.cat([z_luma, z_lumb, d], dim=-1)
+        else:
+            x = torch.cat([z_luma, z_lumb], dim=-1)
         return self.net(x).squeeze(-1)
 
 
@@ -87,6 +100,7 @@ class DMOIModel(nn.Module):
         head_hidden: int = 32,
         dropout: float = 0.3,
         pole_order: tuple[str, str] = ("LumA", "LumB"),
+        use_disagreement: bool = True,
     ) -> None:
         super().__init__()
         if set(pole_order) != set(pole_masks):
@@ -99,6 +113,7 @@ class DMOIModel(nn.Module):
         self.meth_dim = meth_dim
         self.latent_dim = latent_dim
         self.fuse_out = fuse_out
+        self.use_disagreement = use_disagreement
 
         # Shared encoders — used twice per modality (once per pole).
         self.rna_encoder = RNAEncoder(
@@ -129,11 +144,13 @@ class DMOIModel(nn.Module):
             for pole in pole_order
         })
 
-        # Final classifier head.
+        # Final classifier head. The ablation flag controls whether the
+        # disagreement scalar is included as an input feature.
         self.head = ClassifierHead(
             fuse_dim=fuse_out,
             hidden=head_hidden,
             dropout=dropout,
+            use_disagreement=use_disagreement,
         )
 
     def forward(

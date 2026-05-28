@@ -54,6 +54,12 @@ class FoldResult:
     val_auc_curve: list[float] = field(default_factory=list)
     val_bacc_curve: list[float] = field(default_factory=list)
     runtime_seconds: float = 0.0
+    # Day-4 additions — analytical artifacts captured at best epoch.
+    # Each array is shape (n_test,); aligned by sample index in the val fold.
+    val_labels: np.ndarray | None = None
+    val_proba: np.ndarray | None = None
+    val_disagreement: np.ndarray | None = None
+    val_sample_ids: list[str] = field(default_factory=list)
 
 
 def _resolve_device(prefer: str = "auto") -> torch.device:
@@ -94,6 +100,7 @@ def train_one_fold(
     seed: int = 42,
     device: str = "auto",
     verbose: bool = True,
+    use_disagreement: bool = True,
 ) -> FoldResult:
     """Train one DMOI model on one fold's data, return per-epoch metrics + best val AUC."""
     torch.manual_seed(seed)
@@ -127,7 +134,7 @@ def train_one_fold(
         rna_dim=rna_dim, meth_dim=meth_dim, pole_masks=pole_masks,
         latent_dim=latent_dim, rna_hidden=rna_hidden, meth_hidden=meth_hidden,
         fuse_hidden=fuse_hidden, fuse_out=fuse_out, head_hidden=head_hidden,
-        dropout=dropout,
+        dropout=dropout, use_disagreement=use_disagreement,
     ).to(dev)
     opt = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
     loss_fn = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
@@ -140,6 +147,8 @@ def train_one_fold(
     best_val_bacc = 0.0
     best_epoch = 0
     best_state: dict[str, torch.Tensor] | None = None
+    best_val_proba: np.ndarray | None = None
+    best_val_disagreement: np.ndarray | None = None
     patience_left = patience
     train_loss_curve: list[float] = []
     val_auc_curve: list[float] = []
@@ -167,6 +176,7 @@ def train_one_fold(
         with torch.no_grad():
             val_out = model(X_rna_va, X_meth_va)
             val_proba = torch.sigmoid(val_out["logits"]).detach().cpu().numpy()
+            val_disagreement = val_out["disagreement"].detach().cpu().numpy()
         val_auc = float(roc_auc_score(y_val, val_proba))
         val_pred = (val_proba >= 0.5).astype(int)
         val_bacc = float(balanced_accuracy_score(y_val, val_pred))
@@ -183,6 +193,8 @@ def train_one_fold(
             best_val_bacc = val_bacc
             best_epoch = epoch
             best_state = copy.deepcopy(model.state_dict())
+            best_val_proba = val_proba.copy()
+            best_val_disagreement = val_disagreement.copy()
             patience_left = patience
         else:
             patience_left -= 1
@@ -211,6 +223,9 @@ def train_one_fold(
         val_auc_curve=val_auc_curve,
         val_bacc_curve=val_bacc_curve,
         runtime_seconds=runtime,
+        val_labels=y_val.astype(np.int64).copy(),
+        val_proba=best_val_proba,
+        val_disagreement=best_val_disagreement,
     )
 
 
