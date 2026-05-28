@@ -16,6 +16,7 @@ Option A (auxiliary BCE on sub-classifier scores).
 """
 from __future__ import annotations
 
+import math
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 
@@ -194,8 +195,8 @@ def _point_biserial_correlation(
     # Use a small-N-safe normal approximation for the p-value. Avoids scipy
     # dependency. Acceptable for n > 30 (the cohort_v2 fold size).
     z = abs(t)
-    # 2 * P(Z > z) using complementary error function approximation.
-    p = float(2.0 * 0.5 * np.math.erfc(z / np.sqrt(2.0)))  # type: ignore[attr-defined]
+    # 2 * P(Z > z) using complementary error function.
+    p = float(math.erfc(z / math.sqrt(2.0)))
     return r, max(min(p, 1.0), 0.0)
 
 
