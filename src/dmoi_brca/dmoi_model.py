@@ -14,6 +14,12 @@ Loss design (v0.1, Option B from design doc §5):
     L = BCEWithLogitsLoss(logits, labels, pos_weight=class_balanced)
     (No disagreement penalty; disagreement is *input* to the classifier,
      not a regularized output. v0.2 may add an Option-A auxiliary term.)
+
+v0.7 — optional pathway-pole attention (Variant D from v0.7 design doc).
+If `n_pathways > 0`, a `PathwayPoleAttention` module learns a per-pole
+softmax distribution over a Hallmark catalog of pathway-level scores.
+The per-pole pathway feature is concatenated into the classifier head
+input. v0.6-compatible default: `n_pathways=0` skips the branch entirely.
 """
 from __future__ import annotations
 
@@ -25,6 +31,7 @@ from torch import nn
 from dmoi_brca.encoder import MethEncoder, RNAEncoder
 from dmoi_brca.fusion import PoleFuser, disagreement_score
 from dmoi_brca.hypothesis_attention import PoleAttention, PoleMaskSet
+from dmoi_brca.pathway_attention import PathwayPoleAttention
 
 
 class ClassifierHead(nn.Module):
@@ -49,10 +56,16 @@ class ClassifierHead(nn.Module):
         hidden: int = 32,
         dropout: float = 0.3,
         use_disagreement: bool = True,
+        n_pole_pathway_feats: int = 0,
     ) -> None:
         super().__init__()
         self.use_disagreement = use_disagreement
-        in_dim = 2 * fuse_dim + (1 if use_disagreement else 0)
+        self.n_pole_pathway_feats = n_pole_pathway_feats
+        in_dim = (
+            2 * fuse_dim
+            + (1 if use_disagreement else 0)
+            + n_pole_pathway_feats
+        )
         self.net = nn.Sequential(
             nn.Linear(in_dim, hidden),
             nn.LayerNorm(hidden),
@@ -66,12 +79,25 @@ class ClassifierHead(nn.Module):
         z_luma: torch.Tensor,
         z_lumb: torch.Tensor,
         disagreement: torch.Tensor,
+        pole_pathway_feat: torch.Tensor | None = None,
     ) -> torch.Tensor:
+        parts: list[torch.Tensor] = [z_luma, z_lumb]
         if self.use_disagreement:
-            d = disagreement.unsqueeze(-1)
-            x = torch.cat([z_luma, z_lumb, d], dim=-1)
-        else:
-            x = torch.cat([z_luma, z_lumb], dim=-1)
+            parts.append(disagreement.unsqueeze(-1))
+        if self.n_pole_pathway_feats > 0:
+            if pole_pathway_feat is None:
+                raise ValueError(
+                    "ClassifierHead expects pole_pathway_feat when "
+                    "n_pole_pathway_feats > 0",
+                )
+            if pole_pathway_feat.shape[-1] != self.n_pole_pathway_feats:
+                raise ValueError(
+                    f"pole_pathway_feat last dim "
+                    f"{pole_pathway_feat.shape[-1]} != expected "
+                    f"{self.n_pole_pathway_feats}",
+                )
+            parts.append(pole_pathway_feat)
+        x = torch.cat(parts, dim=-1)
         return self.net(x).squeeze(-1)
 
 
@@ -101,6 +127,7 @@ class DMOIModel(nn.Module):
         dropout: float = 0.3,
         pole_order: tuple[str, str] = ("LumA", "LumB"),
         use_disagreement: bool = True,
+        n_pathways: int = 0,
     ) -> None:
         super().__init__()
         if set(pole_order) != set(pole_masks):
@@ -114,6 +141,7 @@ class DMOIModel(nn.Module):
         self.latent_dim = latent_dim
         self.fuse_out = fuse_out
         self.use_disagreement = use_disagreement
+        self.n_pathways = n_pathways
 
         # Shared encoders — used twice per modality (once per pole).
         self.rna_encoder = RNAEncoder(
@@ -144,6 +172,20 @@ class DMOIModel(nn.Module):
             for pole in pole_order
         })
 
+        # v0.7: optional pathway-pole attention. When n_pathways > 0, a
+        # learnable softmax distribution over Hallmark pathways is fit
+        # per pole. The per-pole pathway feature is concatenated into
+        # the ClassifierHead input. n_pathways=0 (default) restores v0.6.
+        self.pathway_attention: PathwayPoleAttention | None = None
+        n_pole_pathway_feats = 0
+        if n_pathways > 0:
+            self.pathway_attention = PathwayPoleAttention(
+                n_pathways=n_pathways,
+                pole_order=pole_order,
+            )
+            # One scalar per pole feeds the head.
+            n_pole_pathway_feats = len(pole_order)
+
         # Final classifier head. The ablation flag controls whether the
         # disagreement scalar is included as an input feature.
         self.head = ClassifierHead(
@@ -151,18 +193,30 @@ class DMOIModel(nn.Module):
             hidden=head_hidden,
             dropout=dropout,
             use_disagreement=use_disagreement,
+            n_pole_pathway_feats=n_pole_pathway_feats,
         )
 
     def forward(
         self,
         x_rna: torch.Tensor,
         x_meth: torch.Tensor,
+        x_pathway: torch.Tensor | None = None,
     ) -> dict[str, torch.Tensor]:
         """Forward pass. Returns a dict containing:
 
         - logits        : (batch,) — final binary logit (positive = LumA).
         - pole_scores   : dict{"LumA": s_luma, "LumB": s_lumb}, each (batch,).
         - disagreement  : (batch,) — |s_LumA - (1 - s_LumB)|.
+        - pole_pathway_feat : (batch, n_poles) — per-pole pathway feature
+          (only present when pathway_attention is wired in; otherwise
+          this key is omitted).
+
+        Args:
+            x_rna:     (batch, rna_dim).
+            x_meth:    (batch, meth_dim).
+            x_pathway: (batch, n_pathways) when v0.7 pathway branch is
+                       wired (DMOIModel was built with n_pathways>0);
+                       must be None when the branch is disabled.
         """
         # Per-pole forward through encoder + fuser.
         z_fused: dict[str, torch.Tensor] = {}
@@ -179,15 +233,37 @@ class DMOIModel(nn.Module):
         # Disagreement signal between the two pole sub-classifiers.
         disagreement = disagreement_score(s_pole["LumA"], s_pole["LumB"])
 
-        # Final head.
-        logits = self.head(z_fused["LumA"], z_fused["LumB"], disagreement)
+        # v0.7: pathway-pole attention branch.
+        pole_pathway_feat: torch.Tensor | None = None
+        if self.pathway_attention is not None:
+            if x_pathway is None:
+                raise ValueError(
+                    "DMOIModel was constructed with n_pathways>0 but "
+                    "forward got x_pathway=None",
+                )
+            pole_pathway_feat = self.pathway_attention(x_pathway)
+        elif x_pathway is not None:
+            # Caller passed a pathway tensor but model wasn't built for it.
+            raise ValueError(
+                "DMOIModel was constructed with n_pathways=0 but "
+                "forward got a non-None x_pathway",
+            )
 
-        return {
+        # Final head.
+        logits = self.head(
+            z_fused["LumA"], z_fused["LumB"], disagreement,
+            pole_pathway_feat=pole_pathway_feat,
+        )
+
+        out: dict[str, torch.Tensor] = {
             "logits": logits,
             "pole_scores": s_pole,
             "disagreement": disagreement,
             "z_fused": z_fused,
         }
+        if pole_pathway_feat is not None:
+            out["pole_pathway_feat"] = pole_pathway_feat
+        return out
 
 
 def count_dmoi_parameters(model: DMOIModel) -> dict[str, int]:

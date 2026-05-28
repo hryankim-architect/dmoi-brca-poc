@@ -28,22 +28,22 @@ proves the *method* and the *engineering*, not the result. See
 
 ---
 
-## v0.6 headline result
+## v0.7 headline result (Phase A — honest negative)
 
-| Metric | DMOI v0.6 |
+| Metric | DMOI v0.7 (Phase A) |
 |---|---|
 | 5-fold CV AUROC (TCGA train split, n=333) | 0.954 ± 0.017 |
-| **Held-out TCGA test AUROC (n=84, scored once)** | **0.968** |
-| **METABRIC external AUROC (n=1,175, RNA-only)** | **0.909** |
-| ECE after T-scaling on held-out TCGA test | 0.079  (T=0.634) |
-| ECE on METABRIC eval slice — cohort-specific T | 0.074  (T_METABRIC=0.934) |
-| Disagreement AUC for misclass (TCGA CV) | 0.715 (2/5 folds significant) |
+| **v0.6 reference: TCGA held-out test AUROC** | **0.968** |
+| **v0.7 Phase A: TCGA held-out test AUROC** | **0.957** (Δ −0.011 vs v0.6) |
+| **v0.6 reference: METABRIC external AUROC** | **0.909** |
+| **v0.7 Phase A: METABRIC external AUROC** | **0.913** (Δ +0.004 vs v0.6) |
 | Per-patient IG attribution (v0.3) | lumA / lumB / final logit on TCGA test (n=84) |
 | Cross-cohort attribution agreement (v0.4) | Jaccard top-10 = 0.667 lumA + 0.667 lumB on METABRIC vs TCGA test |
 | Pathway-level aggregation, 5 sets (v0.5) | lumA loads ESTROGEN_RESPONSE ~300× harder than cell-cycle; lumB loads cell-cycle ~45× harder than ER |
-| **Full Hallmark catalog rollup, 50 sets (v0.6)** | **All v0.5 top pathways stay in the top-3 out of 50, on both cohorts. lumA top-3 = ER_EARLY · ER_LATE · IL2_STAT5 (TCGA + METABRIC identical). lumB top-3 = E2F · G2M · MYC_TARGETS_V1 (TCGA + METABRIC same 3 sets). The 5-set rollup wasn't an artifact — the prior survives the catalog widening.** |
+| Full Hallmark catalog rollup, 50 sets (v0.6) | All v0.5 top pathways stay in the top-3 out of 50, on both cohorts. The 5-set rollup wasn't an artifact |
+| **Pathway-pole attention, learnable (v0.7 Phase A)** | **Attention collapsed to uniform (top-5 weights 0.0203–0.0205 vs uniform 0.0200). 0/3 top-3 pathway overlap with v0.6 IG on either pole. AUROC roughly neutral. Documented failure mode of softmax-over-standardized-inputs; Phase B retries with raw expression + warmer init.** |
 
-**The honest takeaway, in eight acts:**
+**The honest takeaway, in nine acts:**
 
 1. **Baseline saturated the easy signal.** Plain LogReg on
    concat(RNA, methylation) lands at 0.963 AUROC on the 417-patient
@@ -111,6 +111,26 @@ proves the *method* and the *engineering*, not the result. See
    appearing immediately below as additional proliferation programs).
    The 5-set v0.5 finding wasn't an artifact of which sets were
    loaded.
+
+9. **Learnable pathway-pole attention collapsed to uniform under naive
+   Variant D — v0.7 Phase A honest negative.** v0.7 attempted to
+   replace the hand-picked v0.6 pole masks with a `softmax`-normalized
+   learnable attention over all 50 Hallmark pathways (Variant D from
+   [`docs/v0.7-design-pathway-attention.md`](docs/v0.7-design-pathway-attention.md)).
+   After 15 epochs of training the learned attention weights spanned
+   0.0203–0.0205 across all 50 pathways and both poles — effectively
+   uniform (1/50 = 0.0200). Zero of the v0.6 top-3 pathways made the
+   v0.7 top-3 on either pole. TCGA AUROC slipped 1.1pp to 0.957;
+   METABRIC AUROC moved up 0.4pp to 0.913 (roughly neutral).
+   Mechanism diagnosed in [`audit/dmoi_v0.7.md`](audit/dmoi_v0.7.md):
+   pathway scores were standardized to zero mean, so uniform attention
+   produced a near-zero per-pole feature, so the classifier head
+   learned to ignore that input, so gradient stopped flowing back to
+   the attention logits — a self-reinforcing equilibrium of
+   uselessness. v0.6 remains the canonical architecture. **Phase B
+   (v0.7.1) retries with raw (un-standardized) pathway expression and
+   warmer init to test whether the architecture can learn the
+   alignment when the gradient signal isn't crushed.**
 
 ---
 
@@ -468,6 +488,79 @@ mean |IG|).
 
 ---
 
+## Learnable pathway-pole attention (v0.7 Phase A — honest negative)
+
+v0.7 tried to replace v0.6's hand-picked Hallmark pole masks with a
+learnable softmax distribution over all 50 Hallmark pathways per pole
+(Variant D in
+[`docs/v0.7-design-pathway-attention.md`](docs/v0.7-design-pathway-attention.md)).
+The architecture-level question: *if we let the model decide which
+pathways define each pole, does it rediscover v0.6's ER-for-LumA /
+cell-cycle-for-LumB alignment from scratch?*
+
+Phase A answer: no, but for an instructive mechanical reason.
+
+### Result table
+
+| Cohort | v0.7 Phase A AUROC | v0.6 reference | Δ |
+|---|---|---|---|
+| TCGA held-out test | 0.957 | 0.968 | −0.011 |
+| METABRIC external | 0.913 | 0.909 | +0.004 |
+
+| Pole | v0.7 Phase A learned top-3 | v0.6 IG-derived top-3 | Shared |
+|---|---|---|---|
+| LumA | INTERFERON_ALPHA, MTORC1, WNT | ER_EARLY, ER_LATE, IL2_STAT5 | **0 / 3** |
+| LumB | KRAS_UP, MTORC1, PEROXISOME | E2F, G2M, MYC_V1 | **0 / 3** |
+
+### Mechanism (why collapse?)
+
+The learned attention weights spanned 0.0203–0.0205 across all 50
+pathways on both poles — effectively uniform (1/50 = 0.0200). The
+"top-3" displayed above are picked among near-tied weights and carry
+no signal. The cause is mechanical:
+
+1. v0.7 standardizes per-patient pathway-expression scores (mean → 0,
+   std → 1) before feeding them into `PathwayPoleAttention`.
+2. With softmax-uniform attention weights, the pole's pathway feature
+   becomes `sum_k (1/50) * standardized_score[k]`, which averages to
+   ~0 across a batch because standardized scores are zero-centered.
+3. The classifier head receives a near-zero pole_pathway_feat for
+   every patient. It learns to ignore that input.
+4. No downstream signal → no gradient back to `attn_logits` → with
+   `wd=1e-4` pulling logits toward zero, the attention stays uniform
+   forever.
+
+A self-reinforcing equilibrium of uselessness. The TCGA AUROC drop
+(~1.1pp) is consistent with the head having two extra noisy input
+features to learn around; METABRIC's 0.4pp move is within noise.
+
+### v0.7.1 (Phase B) — the planned retry
+
+Two small fixes:
+
+- **Drop the StandardScaler on pathway scores.** Use raw mean
+  expression. Different Hallmark pathways have different baseline
+  means; uniform-attention output is no longer zero-centered, so the
+  head has a signal to grip.
+- **Bump `PathwayPoleAttention.init_std` from 0.01 to 0.5.** Start the
+  attention asymmetrically so gradient has a direction to follow on
+  epoch 1.
+
+If Phase B also collapses, the next step is the Variant C upgrade —
+project the per-pole pathway feature from a scalar to a vector so the
+head has a richer interface into the pathway branch.
+
+### v0.6 remains canonical
+
+Regardless of Phase B outcome, v0.6 (gene-level pole masks + post-hoc
+Hallmark IG rollup) remains the canonical DMOI architecture and the
+canonical interpretability story. Phase A's negative finding is an
+architecture-experiment lesson; it does not invalidate v0.5 / v0.6.
+
+Full report: [`audit/dmoi_v0.7.md`](audit/dmoi_v0.7.md).
+
+---
+
 ## Reproduce
 
 ```bash
@@ -512,6 +605,12 @@ python scripts/aggregate_pathway_ig_full.py  # ~7 min on MPS
                                               # writes audit/dmoi_pathway_v0.6.md
                                               # + 6 per-(target, cohort) CSVs with all 50 sets
                                               # uses data/msigdb/h.all.v2024.1.Hs.symbols.gmt (CC-BY 4.0)
+
+# 11. (v0.7 Phase A) Learnable pathway-pole attention (architecture extension).
+python scripts/eval_dmoi_v0.7.py             # ~7 min on MPS
+                                              # writes audit/dmoi_v0.7.md
+                                              # Phase A documented softmax-attention collapse;
+                                              # Phase B (v0.7.1) re-runs with raw inputs + warmer init.
 ```
 
 Pinned to Python 3.11+, `numpy 2.2`, `scikit-learn 1.7`, `torch 2.x`,
@@ -535,6 +634,7 @@ src/dmoi_brca/
 ├── attribution.py          # v0.3: Captum-based Integrated Gradients wrapper
 ├── pathway.py              # v0.5: Hallmark-set pathway aggregation of IG attributions
 ├── hallmark.py             # v0.6: MSigDB Hallmark gmt-file loader (50 sets, CC-BY 4.0)
+├── pathway_attention.py    # v0.7: learnable softmax pathway-pole attention (Variant D)
 ├── external.py             # v0.2: cross-cohort gene align + QN + meth-silenced helpers
 ├── cohort.py               # cohort construction + 80/20 train/test split
 ├── baseline.py             # sklearn baselines (LogReg, RF)
@@ -554,29 +654,26 @@ scripts/
 ├── explain_metabric.py       # v0.4: cross-cohort IG attribution (METABRIC, meth silenced)
 ├── aggregate_pathway_ig.py        # v0.5: Hallmark pathway rollup driver (5 priors-sets)
 ├── aggregate_pathway_ig_full.py   # v0.6: full 50-set Hallmark catalog rollup driver
+├── eval_dmoi_v0.7.py              # v0.7 Phase A: learnable pathway-pole attention driver
 └── check_english_only.py     # CJK gate enforced pre-push
 ```
 
 ---
 
-## What's out of scope for v0.6
+## What's out of scope for v0.7
 
 See [`docs/what-is-out-of-scope.md`](docs/what-is-out-of-scope.md) for the
-full list. Key items still deliberately deferred after v0.6:
+full list. Key items still deliberately deferred after v0.7 Phase A:
 
 - **Multi-modal external validation.** No public BRCA cohort outside TCGA
   has paired RNA-seq + HM450 — see the v0.2 design doc for the recon.
 - **Other pole hypotheses** (ER−/HER2+, basal vs claudin-low).
-- **Full Hallmark gene-set incorporation in attention.** v0.6 loads the
-  full 50-set catalog for *aggregation* (post-hoc IG rollup); the
-  pole-mask routing inside attention still uses only the 5
-  hand-picked pole-relevant sets.
-- **Pathway-level *attention* (vs aggregation).** v0.5 / v0.6 roll
-  gene-level IG up to pathway scores; the model does not feed
-  pathway embeddings directly into attention.
-- **Other MSigDB collections.** v0.6 ships Hallmark v2024.1.Hs (50
-  sets). C2 curated (~5,000 sets) and other collections are not
-  included.
+- **Variant C / vector-valued per-pole pathway feature.** v0.7 Phase A
+  uses a scalar per pole; if Phase B also collapses, the next step is
+  projecting the pole pathway feature from scalar → vector to give the
+  head a richer interface.
+- **Other MSigDB collections.** Hallmark v2024.1.Hs (50 sets) only.
+  C2 curated (~5,000 sets) and other collections are not included.
 - **Methylation pathway rollup.** The Hallmark aggregation is
   RNA-only; the HM450 probes need a probe → gene crosswalk before a
   methylation pathway view is meaningful.

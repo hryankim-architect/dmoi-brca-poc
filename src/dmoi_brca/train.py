@@ -75,6 +75,9 @@ class FoldResult:
                                         # FoldResult dataclass torch-import-free.
     rna_scaler: object | None = None    # sklearn StandardScaler fit on train RNA
     meth_scaler: object | None = None   # sklearn StandardScaler fit on train meth
+    # v0.7 additions — pathway-branch artifacts (None unless v0.7 train mode).
+    pathway_scaler: object | None = None  # sklearn StandardScaler fit on train pathway scores
+    pathway_names: list[str] | None = None  # ordering of pathway columns
 
 
 def _resolve_device(prefer: str = "auto") -> torch.device:
@@ -120,6 +123,9 @@ def train_one_fold(
     calibration_frac: float = 0.0,
     pick_best_epoch: bool = True,
     keep_artifacts: bool = False,
+    # v0.7: optional pathway-pole attention branch.
+    pathway_genes: dict[str, list[str]] | None = None,
+    rna_feature_names: Sequence[str] | None = None,
 ) -> FoldResult:
     """Train one DMOI model on one fold's data, return per-epoch metrics + best val AUC.
 
@@ -197,6 +203,49 @@ def train_one_fold(
         X_rna_cal = torch.from_numpy(rna_ca).to(dev)
         X_meth_cal = torch.from_numpy(meth_ca).to(dev)
 
+    # v0.7: pre-compute per-patient pathway expression scores from the
+    # standardized RNA. The pathway-pole attention branch reads these
+    # alongside the gene-level branch. n_pathways=0 (default) leaves the
+    # model at v0.6 backward-compatible state.
+    pathway_scaler_out: object | None = None
+    pathway_names_out: list[str] | None = None
+    n_pathways = 0
+    X_path_tr: torch.Tensor | None = None
+    X_path_va: torch.Tensor | None = None
+    X_path_cal: torch.Tensor | None = None
+    if pathway_genes is not None:
+        if rna_feature_names is None:
+            raise ValueError(
+                "pathway_genes provided but rna_feature_names is None; "
+                "the pathway-attention branch needs gene names to index "
+                "RNA columns by pathway membership.",
+            )
+        from dmoi_brca.pathway_attention import (
+            compute_pathway_expression_scores,
+        )
+        path_tr_raw, pathway_names_out = compute_pathway_expression_scores(
+            rna_tr, rna_feature_names, pathway_genes,
+        )
+        path_va_raw, _ = compute_pathway_expression_scores(
+            rna_va, rna_feature_names, pathway_genes,
+        )
+        # Per-pathway StandardScaler so the model sees roughly unit-variance
+        # signals across pathway columns.
+        pathway_scaler = StandardScaler().fit(path_tr_raw)
+        path_tr = pathway_scaler.transform(path_tr_raw).astype(np.float32)
+        path_va = pathway_scaler.transform(path_va_raw).astype(np.float32)
+        X_path_tr = torch.from_numpy(path_tr).to(dev)
+        X_path_va = torch.from_numpy(path_va).to(dev)
+        if cal_idx_local is not None:
+            path_ca_raw, _ = compute_pathway_expression_scores(
+                rna_scaler.transform(rna_cal_raw).astype(np.float32),
+                rna_feature_names, pathway_genes,
+            )
+            path_ca = pathway_scaler.transform(path_ca_raw).astype(np.float32)
+            X_path_cal = torch.from_numpy(path_ca).to(dev)
+        pathway_scaler_out = pathway_scaler
+        n_pathways = len(pathway_names_out)
+
     # Class-balanced positive weight (LumB pos = label 1).
     n_pos = int(y_train.sum())
     n_neg = len(y_train) - n_pos
@@ -208,12 +257,16 @@ def train_one_fold(
         latent_dim=latent_dim, rna_hidden=rna_hidden, meth_hidden=meth_hidden,
         fuse_hidden=fuse_hidden, fuse_out=fuse_out, head_hidden=head_hidden,
         dropout=dropout, use_disagreement=use_disagreement,
+        n_pathways=n_pathways,
     ).to(dev)
     opt = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
     loss_fn = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 
-    # Training DataLoader.
-    ds = TensorDataset(X_rna_tr, X_meth_tr, y_tr_t)
+    # Training DataLoader. v0.7: include pathway tensor when wired.
+    if X_path_tr is not None:
+        ds = TensorDataset(X_rna_tr, X_meth_tr, X_path_tr, y_tr_t)
+    else:
+        ds = TensorDataset(X_rna_tr, X_meth_tr, y_tr_t)
     loader = DataLoader(ds, batch_size=batch_size, shuffle=True, drop_last=False)
 
     best_val_auc = -float("inf")
@@ -232,9 +285,14 @@ def train_one_fold(
     for epoch in range(1, n_epochs + 1):
         model.train()
         epoch_losses: list[float] = []
-        for b_rna, b_meth, b_y in loader:
+        for batch in loader:
+            if X_path_tr is not None:
+                b_rna, b_meth, b_path, b_y = batch
+            else:
+                b_rna, b_meth, b_y = batch
+                b_path = None
             opt.zero_grad()
-            out = model(b_rna, b_meth)
+            out = model(b_rna, b_meth, b_path)
             loss = loss_fn(out["logits"], b_y)
             if aux_weight > 0:
                 # Option A: supervised sub-classifiers.
@@ -264,13 +322,13 @@ def train_one_fold(
         # Validation.
         model.eval()
         with torch.no_grad():
-            val_out = model(X_rna_va, X_meth_va)
+            val_out = model(X_rna_va, X_meth_va, X_path_va)
             val_logits_np = val_out["logits"].detach().cpu().numpy()
             val_proba = torch.sigmoid(val_out["logits"]).detach().cpu().numpy()
             val_disagreement = val_out["disagreement"].detach().cpu().numpy()
             cal_logits_np: np.ndarray | None = None
             if X_rna_cal is not None and X_meth_cal is not None:
-                cal_out = model(X_rna_cal, X_meth_cal)
+                cal_out = model(X_rna_cal, X_meth_cal, X_path_cal)
                 cal_logits_np = cal_out["logits"].detach().cpu().numpy()
         val_auc = float(roc_auc_score(y_val, val_proba))
         val_pred = (val_proba >= 0.5).astype(int)
@@ -332,6 +390,10 @@ def train_one_fold(
     model_out = model if keep_artifacts else None
     rna_scaler_out = rna_scaler if keep_artifacts else None
     meth_scaler_out = meth_scaler if keep_artifacts else None
+    # v0.7: pathway artifacts only surfaced when keep_artifacts=True AND the
+    # pathway branch was actually wired (pathway_genes was provided).
+    pathway_scaler_field = pathway_scaler_out if keep_artifacts else None
+    pathway_names_field = pathway_names_out if keep_artifacts else None
     return FoldResult(
         fold=fold,
         best_val_auc=best_val_auc,
@@ -355,6 +417,8 @@ def train_one_fold(
         model=model_out,
         rna_scaler=rna_scaler_out,
         meth_scaler=meth_scaler_out,
+        pathway_scaler=pathway_scaler_field,
+        pathway_names=pathway_names_field,
     )
 
 
