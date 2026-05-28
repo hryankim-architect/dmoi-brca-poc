@@ -58,6 +58,7 @@ class FoldResult:
     # Each array is shape (n_test,); aligned by sample index in the val fold.
     val_labels: np.ndarray | None = None
     val_proba: np.ndarray | None = None
+    val_logits: np.ndarray | None = None  # pre-sigmoid; for Day-5 temperature scaling
     val_disagreement: np.ndarray | None = None
     val_sample_ids: list[str] = field(default_factory=list)
 
@@ -149,6 +150,7 @@ def train_one_fold(
     best_epoch = 0
     best_state: dict[str, torch.Tensor] | None = None
     best_val_proba: np.ndarray | None = None
+    best_val_logits: np.ndarray | None = None
     best_val_disagreement: np.ndarray | None = None
     patience_left = patience
     train_loss_curve: list[float] = []
@@ -191,6 +193,7 @@ def train_one_fold(
         model.eval()
         with torch.no_grad():
             val_out = model(X_rna_va, X_meth_va)
+            val_logits_np = val_out["logits"].detach().cpu().numpy()
             val_proba = torch.sigmoid(val_out["logits"]).detach().cpu().numpy()
             val_disagreement = val_out["disagreement"].detach().cpu().numpy()
         val_auc = float(roc_auc_score(y_val, val_proba))
@@ -210,6 +213,7 @@ def train_one_fold(
             best_epoch = epoch
             best_state = copy.deepcopy(model.state_dict())
             best_val_proba = val_proba.copy()
+            best_val_logits = val_logits_np.copy()
             best_val_disagreement = val_disagreement.copy()
             patience_left = patience
         else:
@@ -241,6 +245,7 @@ def train_one_fold(
         runtime_seconds=runtime,
         val_labels=y_val.astype(np.int64).copy(),
         val_proba=best_val_proba,
+        val_logits=best_val_logits,
         val_disagreement=best_val_disagreement,
     )
 

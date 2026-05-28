@@ -1,6 +1,6 @@
 # DMOI Full Evaluation + Ablation (Day-4)
 
-Generated: 2026-05-28T02:34:49Z
+Generated: 2026-05-28T02:47:35Z
 
 ## Cohort v2
 
@@ -49,6 +49,25 @@ Interpretation:
 - Point-biserial p per fold: ['0.0279', '0.0020', '0.4643', '0.0008', '0.3951']
 
 **3/5 folds** show statistically informative disagreement (mean dis on misclass > mean dis on correct AND p < 0.05). DMOI's Option-B thesis (disagreement is INFORMATIVE rather than a regularization target) is **empirically supported** on cohort_v2: high-disagreement cases are disproportionately the misclassified ones, which are biologically the LumA/LumB borderline tumors where the two pole perspectives genuinely disagree.
+
+## Temperature scaling calibration (Option A)
+
+Single-parameter post-hoc calibration via Guo et al. 2017:
+`calibrated_proba = sigmoid(logits / T)`. T fit by LBFGS on the
+BCE NLL of each fold's val logits.
+
+**Caveat (v0.1):** T is fit on the same val fold we measure ECE on,
+which is **optimistic** — it's an upper bound on what post-hoc
+calibration can buy with this architecture on this cohort.
+v0.2+ should fit T on a nested calibration split carved out of
+the train fold.
+
+- Mean T : **0.555 ± 0.107**  (T > 1 = overconfident; T = 1 = already calibrated)
+- Per-fold T : ['0.578', '0.638', '0.549', '0.635', '0.375']
+- Per-fold ECE (uncalibrated) : ['0.1487', '0.1305', '0.1513', '0.1140', '0.2038']
+- Per-fold ECE (T-calibrated) : ['0.0748', '0.0688', '0.0626', '0.0471', '0.1087']
+- **Mean ECE before → after** : **0.1496 → 0.0724**
+- **Δ ECE (improvement)** : **+0.0772**
 
 ## Pooled OOF confusion matrix (all 5 folds concatenated)
 

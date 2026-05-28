@@ -27,9 +27,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 import numpy as np  # noqa: E402
 
+from dmoi_brca.calibration import calibrate_fold  # noqa: E402
 from dmoi_brca.eval import (  # noqa: E402
     aggregate_cross_fold,
     build_fold_eval_bundle,
+    compute_calibration,
     concat_fold_predictions,
     confusion_matrix_table,
 )
@@ -145,25 +147,73 @@ def main() -> int:
     pooled_pred = (pooled_proba >= 0.5).astype(np.int64)
     pooled_cm = confusion_matrix_table(pooled_labels, pooled_pred)
 
+    # --- Temperature scaling calibration on Option A val logits ---
+    # CAVEAT: T is fit on the same val fold we then measure ECE on. This is
+    # optimistic — it sets an upper bound on what post-hoc calibration can
+    # buy. v0.2+ should fit T on a nested calibration split carved out of
+    # train. See `src/dmoi_brca/calibration.py` module docstring.
+    print("\n--- Temperature scaling (Option A) ---")
+    calib_fits: list = []
+    calibrated_probas: list[np.ndarray] = []
+    calibrated_eces: list[float] = []
+    for r in optionA_results:
+        if r.val_logits is None or r.val_labels is None:
+            sys.stderr.write(
+                f"WARN: fold {r.fold} missing val_logits or val_labels; "
+                "skipping calibration\n",
+            )
+            calib_fits.append(None)
+            calibrated_probas.append(np.zeros(0))
+            calibrated_eces.append(float("nan"))
+            continue
+        calibrated, fit = calibrate_fold(r.val_logits, r.val_labels)
+        cal_report = compute_calibration(r.val_labels, calibrated, n_bins=10)
+        calib_fits.append(fit)
+        calibrated_probas.append(calibrated)
+        calibrated_eces.append(float(cal_report.ece))
+        print(
+            f"  fold {r.fold}: T={fit.temperature:.3f}  "
+            f"NLL {fit.nll_before:.4f} -> {fit.nll_after:.4f}  "
+            f"ECE_cal={cal_report.ece:.4f}",
+        )
+
+    valid_fits = [f for f in calib_fits if f is not None]
+    valid_cal_eces = np.array(
+        [e for e in calibrated_eces if not np.isnan(e)],
+    )
+    uncal_eces = np.array([b.calibration.ece for b in bundles])
+    mean_T = float(np.mean([f.temperature for f in valid_fits])) if valid_fits else float("nan")
+    std_T = (
+        float(np.std([f.temperature for f in valid_fits], ddof=1))
+        if len(valid_fits) > 1
+        else 0.0
+    )
+    mean_ece_uncal = float(uncal_eces.mean())
+    mean_ece_cal = float(valid_cal_eces.mean()) if len(valid_cal_eces) > 0 else float("nan")
+    ece_reduction = mean_ece_uncal - mean_ece_cal
+
     # --- Per-fold TSV (3-way: Option A / Option B / Ablation) ---
     AUDIT.mkdir(exist_ok=True)
     per_fold = AUDIT / "dmoi_eval_per_fold.tsv"
     with per_fold.open("w") as f:
         f.write(
             "fold\tauc_A\tauc_B\tauc_ablation\tbacc_A\tbacc_B\tbacc_ablation\t"
-            "f1_lumA_optA\tf1_lumB_optA\tece_optA\t"
+            "f1_lumA_optA\tf1_lumB_optA\tece_optA\ttemperature_optA\tece_cal_optA\t"
             "dis_auc_optA\tdis_r_optA\tdis_p_optA\tn_test\tn_pos_test\n",
         )
-        for a_r, b_r, abl_r, eb in zip(
-            optionA_results, optionB_results, ablation_results, bundles, strict=True,
+        for a_r, b_r, abl_r, eb, fit, ece_cal in zip(
+            optionA_results, optionB_results, ablation_results, bundles,
+            calib_fits, calibrated_eces, strict=True,
         ):
+            T_str = f"{fit.temperature:.4f}" if fit is not None else "nan"
+            ece_cal_str = f"{ece_cal:.4f}" if not np.isnan(ece_cal) else "nan"
             f.write(
                 f"{eb.fold}\t{a_r.best_val_auc:.4f}\t{b_r.best_val_auc:.4f}\t"
                 f"{abl_r.best_val_auc:.4f}\t"
                 f"{a_r.best_val_bacc:.4f}\t{b_r.best_val_bacc:.4f}\t"
                 f"{abl_r.best_val_bacc:.4f}\t"
                 f"{eb.per_class['LumA'].f1:.4f}\t{eb.per_class['LumB'].f1:.4f}\t"
-                f"{eb.calibration.ece:.4f}\t"
+                f"{eb.calibration.ece:.4f}\t{T_str}\t{ece_cal_str}\t"
                 f"{eb.disagreement_report.auc_dis_predicts_misclass:.4f}\t"
                 f"{eb.disagreement_report.point_biserial_r:.4f}\t"
                 f"{eb.disagreement_report.point_biserial_p:.4f}\t"
@@ -266,6 +316,25 @@ def main() -> int:
         f"- Point-biserial correlation r per fold: {[f'{r:+.3f}' for r in dis_rs]}\n"
         f"- Point-biserial p per fold: {[f'{p:.4f}' for p in dis_ps]}\n\n"
         f"{verdict_paragraph}\n"
+        "## Temperature scaling calibration (Option A)\n\n"
+        "Single-parameter post-hoc calibration via Guo et al. 2017:\n"
+        "`calibrated_proba = sigmoid(logits / T)`. T fit by LBFGS on the\n"
+        "BCE NLL of each fold's val logits.\n\n"
+        "**Caveat (v0.1):** T is fit on the same val fold we measure ECE on,\n"
+        "which is **optimistic** — it's an upper bound on what post-hoc\n"
+        "calibration can buy with this architecture on this cohort.\n"
+        "v0.2+ should fit T on a nested calibration split carved out of\n"
+        "the train fold.\n\n"
+        f"- Mean T : **{mean_T:.3f} ± {std_T:.3f}**  "
+        "(T > 1 = overconfident; T = 1 = already calibrated)\n"
+        f"- Per-fold T : "
+        f"{[f'{f.temperature:.3f}' if f is not None else 'nan' for f in calib_fits]}\n"
+        f"- Per-fold ECE (uncalibrated) : "
+        f"{[f'{e:.4f}' for e in uncal_eces.tolist()]}\n"
+        f"- Per-fold ECE (T-calibrated) : "
+        f"{[f'{e:.4f}' if not np.isnan(e) else 'nan' for e in calibrated_eces]}\n"
+        f"- **Mean ECE before → after** : **{mean_ece_uncal:.4f} → {mean_ece_cal:.4f}**\n"
+        f"- **Δ ECE (improvement)** : **{ece_reduction:+.4f}**\n\n"
         "## Pooled OOF confusion matrix (all 5 folds concatenated)\n\n"
         f"|       | pred LumA | pred LumB |\n"
         f"|-------|-----------|-----------|\n"

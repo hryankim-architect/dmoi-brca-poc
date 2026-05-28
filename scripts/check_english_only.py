@@ -35,6 +35,7 @@ DEFAULT_GLOBS = [
     "src/**/*.py",
     "tests/**/*.py",
     "docs/**/*.md",
+    "audit/**/*.md",
     "scripts/**/*.sh",
     "scripts/**/*.py",
     ".github/workflows/**/*.yml",
