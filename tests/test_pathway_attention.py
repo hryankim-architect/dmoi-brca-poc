@@ -12,7 +12,6 @@ from dmoi_brca.pathway_attention import (
     compute_pathway_expression_scores,
 )
 
-
 # ---------------------------------------------------------------------------
 # compute_pathway_expression_scores
 # ---------------------------------------------------------------------------
