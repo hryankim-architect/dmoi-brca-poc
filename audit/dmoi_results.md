@@ -42,7 +42,7 @@ Baseline_v2 best concat configuration (LogReg, 5-fold same folds):
 DMOI vs concat LogReg: ΔAUROC = +0.0049
 DMOI vs meth  LogReg: ΔAUROC = +0.0879
 
-## Honest scope
+## Scope
 
 Baseline AUROC values range 0.9496 - 0.9800 (mean=0.9679, n=5).
 This is a non-trivial comparison anchor for the next-step model.

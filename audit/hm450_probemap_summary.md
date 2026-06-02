@@ -44,7 +44,7 @@ This is the *upper bound* coverage across the entire HM450 array. Day-2's
 actual mask will be computed on the cohort_v2's 10,000 top-variance probes,
 where coverage will be lower but still useful.
 
-### LumA pole — ESTROGEN_RESPONSE_EARLY + ESTROGEN_RESPONSE_LATE
+### LumA pole, ESTROGEN_RESPONSE_EARLY + ESTROGEN_RESPONSE_LATE
 
 | Metric | Value |
 |---|---|
@@ -52,7 +52,7 @@ where coverage will be lower but still useful.
 | Genes with at least one HM450 probe | 162 (98.8%) |
 | Probes mapping to pole hallmark genes | 4,082 (1.0% of full HM450) |
 
-### LumB pole — E2F_TARGETS + G2M_CHECKPOINT + MYC_TARGETS_V1
+### LumB pole, E2F_TARGETS + G2M_CHECKPOINT + MYC_TARGETS_V1
 
 | Metric | Value |
 |---|---|
@@ -69,7 +69,7 @@ The methylation attention mask is well-populated:
 
 The two-pole imbalance (164 LumA genes vs 474 LumB genes) reflects the
 underlying Hallmark sets, not a coverage problem. The DMOI model should
-adapt — proliferation signal (LumB) is intrinsically broader in MSigDB
+adapt, proliferation signal (LumB) is intrinsically broader in MSigDB
 than estrogen response (LumA).
 
 ## Reproduce

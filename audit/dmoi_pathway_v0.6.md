@@ -1,4 +1,4 @@
-# DMOI v0.6 — Full 50-set Hallmark IG aggregation
+# DMOI v0.6, Full 50-set Hallmark IG aggregation
 
 Generated: 2026-05-28T11:06:31Z
 
@@ -12,7 +12,7 @@ Generated: 2026-05-28T11:06:31Z
 
 ## v0.5 finding survives the 50-set widening?
 
-All v0.5 top pathways are still in the v0.6 (50-set) top-3 on both cohorts. The 5-set rollup wasn't an artifact of which sets were loaded — the same pathways win out of 50.
+All v0.5 top pathways are still in the v0.6 (50-set) top-3 on both cohorts. The 5-set rollup wasn't an artifact of which sets were loaded, the same pathways win out of 50.
 
 ### lumA_pole
 
@@ -51,7 +51,7 @@ All v0.5 top pathways are still in the v0.6 (50-set) top-3 on both cohorts. The 
 
 ## Top-10 pathways per target × cohort
 
-### lumA_pole — top 10
+### lumA_pole, top 10
 
 | Rank | TCGA test pathway | mean \|IG\| | METABRIC pathway | mean \|IG\| |
 |---|---|---|---|---|
@@ -66,7 +66,7 @@ All v0.5 top pathways are still in the v0.6 (50-set) top-3 on both cohorts. The 
 | 9 | `HALLMARK_UV_RESPONSE_DN` | 0.00055 | `HALLMARK_UV_RESPONSE_DN` | 0.00059 |
 | 10 | `HALLMARK_P53_PATHWAY` | 0.00049 | `HALLMARK_P53_PATHWAY` | 0.00055 |
 
-### lumB_pole — top 10
+### lumB_pole, top 10
 
 | Rank | TCGA test pathway | mean \|IG\| | METABRIC pathway | mean \|IG\| |
 |---|---|---|---|---|
@@ -81,7 +81,7 @@ All v0.5 top pathways are still in the v0.6 (50-set) top-3 on both cohorts. The 
 | 9 | `HALLMARK_APICAL_SURFACE` | 0.00038 | `HALLMARK_NOTCH_SIGNALING` | 0.00043 |
 | 10 | `HALLMARK_NOTCH_SIGNALING` | 0.00036 | `HALLMARK_SPERMATOGENESIS` | 0.00036 |
 
-### final_logit — top 10
+### final_logit, top 10
 
 | Rank | TCGA test pathway | mean \|IG\| | METABRIC pathway | mean \|IG\| |
 |---|---|---|---|---|
@@ -109,13 +109,13 @@ Full per-pathway tables (one CSV per (target, cohort) combination, ranked by `me
 
 ## Reading
 
-- `mean |IG|` — how loudly the pathway speaks (magnitude).
-- `signed_mean` — direction (positive = pushes toward LumB; negative = pushes toward LumA for the final logit; for the pole scores, positive = pushes toward 'this is the pole's class').
+- `mean |IG|`, how loudly the pathway speaks (magnitude).
+- `signed_mean`, direction (positive = pushes toward LumB; negative = pushes toward LumA for the final logit; for the pole scores, positive = pushes toward 'this is the pole's class').
 - A pathway with high `mean |IG|` but `signed_mean ≈ 0` means the pathway has both pro- and anti- genes that roughly cancel.
 
-## Honest scope
+## Scope
 
-- 50 Hallmark sets loaded — the entire Hallmark v2024.1.Hs catalog. v0.6 closes the v0.5 caveat ('did you only load the 5 sets that work?'). The C2 curated catalog (~5,000 sets) remains out of scope.
+- 50 Hallmark sets loaded, the entire Hallmark v2024.1.Hs catalog. v0.6 closes the v0.5 caveat ('did you only load the 5 sets that work?'). The C2 curated catalog (~5,000 sets) remains out of scope.
 - Aggregation is over the RNA modality only. METABRIC's methylation branch is silenced; even on TCGA the meth features are HM450 probes, not gene symbols, so a Hallmark rollup of meth IG would need a probe -> gene crosswalk.
 - The pathway scores are interpretation artifacts, not training signals. The model still attends to genes, not to pathways. Pathway-level *attention* (vs aggregation) is the natural v0.7+ candidate.
 

@@ -13,21 +13,21 @@ proliferation, ER-driven).
 ## Source
 
 MSigDB v2024.1.Hs Hallmark collection (Liberzon et al. 2015, Cell Systems).
-Curated leading-edge subsets — sufficient for hypothesis-conditioning
+Curated leading-edge subsets, sufficient for hypothesis-conditioning
 in a POC; fetch the full MSigDB GMT for production use.
 
 ## Feature space
 
 - RNA-seq genes available: 20530 (HiSeqV2 cohort_v2 column space)
 
-## LumA pole — estrogen response sets
+## LumA pole, estrogen response sets
 
 | Hallmark set | Genes in set | Genes in features | Overlap |
 |---|---|---|---|
 | HALLMARK_ESTROGEN_RESPONSE_EARLY | 109 | 107 | 98.2% |
 | HALLMARK_ESTROGEN_RESPONSE_LATE | 118 | 115 | 97.5% |
 
-## LumB pole — proliferation / cell-cycle sets
+## LumB pole, proliferation / cell-cycle sets
 
 | Hallmark set | Genes in set | Genes in features | Overlap |
 |---|---|---|---|
@@ -65,7 +65,7 @@ python scripts/build_priors.py
 
 - Symbols not found in the HiSeqV2 feature space are typically renamed
   symbols (HGNC updates) or non-coding/recently-curated genes. The DMOI
-  encoder uses whichever genes ARE present — coverage is high (>80%)
+  encoder uses whichever genes ARE present, coverage is high (>80%)
   for both poles' hallmark sets.
 - Gene symbols are facts (US Copyright Act of 1976, Feist v Rural).
   MSigDB curation is publicly distributed by the Broad Institute.

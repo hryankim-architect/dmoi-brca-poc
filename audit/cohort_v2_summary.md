@@ -1,11 +1,11 @@
-# DMOI POC Cohort v2 Summary (Day-5A — Week-2 re-scope)
+# DMOI POC Cohort v2 Summary (Day-5A, Week-2 re-scope)
 
 Generated: 2026-05-28T03:21:26Z
 
 ## Rationale
 
 Day-4 baseline saturated at AUROC=1.0 on H+ luminal vs H- basal (cohort v1).
-Re-scoped Week-2 target to **within-luminal LumA vs LumB** — both poles ER+,
+Re-scoped Week-2 target to **within-luminal LumA vs LumB**, both poles ER+,
 discriminating axis is proliferation rate (LumB high Ki67/cell cycle).
 Literature baseline AUC ~0.70-0.85 on single-omic, much harder.
 
@@ -33,7 +33,7 @@ Literature baseline AUC ~0.70-0.85 on single-omic, much harder.
 
 Stratified 80/20 holdout on dual-modality patients, random_state=2024 (distinct from the CV seed 42). The test split is
 carved at cohort-construction time and only scored once at the end of
-each evaluation run — no model selection, no early stopping, no
+each evaluation run, no model selection, no early stopping, no
 calibration fitting against it.
 
 | Split | LumA | LumB | Total |

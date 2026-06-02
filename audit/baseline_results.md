@@ -32,10 +32,10 @@ Generated: 2026-05-27T20:39:52Z
 | rna | logreg | 1.0000 ± 0.0000 | 0.9985 ± 0.0033 |
 | rna | rf | 1.0000 ± 0.0000 | 1.0000 ± 0.0000 |
 
-## Saturation finding (honest)
+## Saturation finding
 
 Every (feature_set, model) combination hits AUROC >= 0.99 in 5-fold CV.
-This is **not** a successful baseline — it means the H+ (luminal) vs
+This is **not** a successful baseline, it means the H+ (luminal) vs
 H- (basal/TN) task is **too easy** for a DMOI POC discrimination target:
 
 - The PAM50 labels (LumA/LumB/Basal) used to define the poles are themselves
@@ -45,7 +45,7 @@ H- (basal/TN) task is **too easy** for a DMOI POC discrimination target:
 - Without baseline headroom, the Week-2 DMOI hypothesis-conditioned encoder
   cannot demonstrate value on this task.
 
-**Honest next step**: re-scope the Week-2 discrimination target to a harder
+**Next step**: re-scope the Week-2 discrimination target to a harder
 task on the same cohort. Candidates:
 
 - Within-luminal LumA vs LumB (PAM50 mRNA_nature2012 sub-call).

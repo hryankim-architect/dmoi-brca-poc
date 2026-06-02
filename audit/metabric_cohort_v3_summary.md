@@ -32,7 +32,7 @@ protocol established in v0.2 / v0.4.
 METABRIC distribution of CLAUDIN_SUBTYPE (all 1,980 called):
 - LumA 700 / LumB 475 / Basal 209 (this cohort)
 - claudin-low 218 / Her2 224 / Normal 148 / NC 6
-  (excluded -- out of scope for the v0.9 Luminal-vs-Basal target)
+  (excluded, out of scope for the v0.9 Luminal-vs-Basal target)
 
 ## Reproduce
 

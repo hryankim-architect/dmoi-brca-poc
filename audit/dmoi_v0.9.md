@@ -1,4 +1,4 @@
-# DMOI v0.9 -- Luminal-vs-Basal cross-task generalization
+# DMOI v0.9, Luminal-vs-Basal cross-task generalization
 
 Generated: 2026-05-28T17:41:23Z
 
@@ -75,12 +75,12 @@ Expected Basal-pole top-5 to include some of {EMT, MYC_TARGETS_V1, G2M_CHECKPOIN
 - Luminal pole top-5 ∩ expected = 3 / 3 : `HALLMARK_ANDROGEN_RESPONSE`, `HALLMARK_ESTROGEN_RESPONSE_EARLY`, `HALLMARK_ESTROGEN_RESPONSE_LATE`
 - Basal pole top-5 ∩ expected = 5 / 5 : `HALLMARK_E2F_TARGETS`, `HALLMARK_EPITHELIAL_MESENCHYMAL_TRANSITION`, `HALLMARK_G2M_CHECKPOINT`, `HALLMARK_MYC_TARGETS_V1`, `HALLMARK_MYC_TARGETS_V2`
 
-## Cross-task generalization -- closure analysis
+## Cross-task generalization, closure analysis
 
 v0.6 / v0.7 / v0.8 worked exclusively on the LumA-vs-LumB axis (within
 the ER+ luminal subtype). v0.9 transferred the v0.6 architecture to a
-fundamentally different classification axis -- cross-lineage Luminal
-(LumA + LumB) vs Basal -- with the only changes being (1) the cohort
+fundamentally different classification axis, cross-lineage Luminal
+(LumA + LumB) vs Basal, with the only changes being (1) the cohort
 file, (2) the pole-defining Hallmark set names, and (3) the
 class-positive label assignment. **Zero changes to the model
 architecture, training loop, fusion, attention, encoder, or
@@ -109,14 +109,14 @@ LumA-vs-LumB is a within-luminal classification (both ER+, both
 share the FOXA1/GATA3 luminal program); the discriminative axis is
 *degree* of proliferation. Luminal-vs-Basal is cross-lineage (luminal
 epithelial vs basal-like, often triple-negative); the discriminative
-axis is *kind* of biology -- ER program on/off, basal cytokeratin
+axis is *kind* of biology, ER program on/off, basal cytokeratin
 program on/off, EMT signature on/off. The latter is intrinsically
 easier to separate, so AUROC ceilings differ.
 
 The v0.9 finding is NOT "DMOI got better." It's "DMOI worked on a
 different task without architecture changes, and the IG ranking
 recovered the wired-in priors." That second clause is what makes the
-test informative -- a higher-AUROC ceiling alone would be evidence of
+test informative, a higher-AUROC ceiling alone would be evidence of
 nothing.
 
 ### Implication for the v0.7+v0.8 architecture-experiment conclusion
@@ -133,7 +133,7 @@ this class of multi-omics classification problems, and v0.7+v0.8's
 "don't add a trainable pathway branch" is consistent with v0.9's
 "do swap pole priors instead."
 
-## Honest scope
+## Scope
 
 - Same architecture as v0.6 (no model changes); only cohort, pole
   priors, and class-positive label assignment change. Cross-task
@@ -149,12 +149,12 @@ this class of multi-omics classification problems, and v0.7+v0.8's
   priors correctly, not that it found a shortcut.
 - No METABRIC external validation in v0.9. METABRIC's Luminal-vs-Basal
   subset would require a parallel cohort builder + PAM50 mapping plus
-  re-derivation of pole pathway weights from raw expression --
+  re-derivation of pole pathway weights from raw expression,
   deferred to v0.10+ if cross-cohort generalization is the next
   question.
 - Pathway names in `POLE_LUMINAL` / `POLE_BASAL` reference sets
   outside `priors.HALLMARK_SETS`, so `make_pole_masks` callers must
-  pass `hallmark_sets=load_hallmark_gmt(...)` -- the override mechanism
+  pass `hallmark_sets=load_hallmark_gmt(...)`, the override mechanism
   added in v0.9 to keep priors.py from ballooning into a 50-set
   hardcoded copy of the gmt.
 

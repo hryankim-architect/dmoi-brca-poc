@@ -10,12 +10,12 @@
 (LumA-like and LumB-like) each see only their pole-relevant RNA + DNA-methylation
 features via Hallmark-gene priors and HM450 cis-mapping. Their predictions are
 fused with a disagreement signal exposed to the classifier head. Temperature
-scaling on a held-out calibration split delivers honest, well-calibrated
-probabilities. **v0.2 adds two external generalization tests** — a held-out
-TCGA test split and an independent cohort (METABRIC, RNA-only) — and a clean
+scaling on a held-out calibration split delivers well-calibrated
+probabilities. **v0.2 adds two external generalization tests**, a held-out
+TCGA test split and an independent cohort (METABRIC, RNA-only), and a clean
 cohort-specific calibration analysis.
 
-## TL;DR — four axes of reusability, all split-invariant
+## TL;DR: four axes of reusability, all split-invariant
 
 The v0.6 → v0.12-A sequence tests one architectural commitment across four
 orthogonal axes and an adversarial alternative architecture. Every axis holds,
@@ -30,9 +30,7 @@ and the two task axes are sealed as split-invariant under 5-fold CV.
 | Calibration transfer | ECE **0.138 → 0.077** (cohort-specific T) | v0.1 / v0.2 |
 | Adversarial check | 3-variant experiment **falsified** trainable pathway-attention | v0.7 / v0.8 |
 
-Read this table as: *found → systematically tested → falsified an alternative →
-generalized across cohort, task, and both → sealed under split perturbation on
-every measurable axis.* The dense per-version tables and analysis follow below.
+The progression is one arc: a finding, then systematic testing, then a falsified alternative, then generalization across cohort, task, and both at once, and finally confirmation that it holds under split perturbation on every measurable axis. The dense per-version tables and analysis follow below.
 
 **Reproducibility.** `python scripts/eval_dmoi.py` reproduces the full TCGA
 evaluation in about 2 minutes on an M-series Mac.
@@ -68,14 +66,14 @@ proves the *method* and the *engineering*, not the result. See
 | Full Hallmark catalog rollup, 50 sets (v0.6) | All v0.5 top pathways stay in the top-3 out of 50, on both cohorts |
 | Learnable pathway attention v0.7 Phase A | Softmax collapse under standardized inputs (uniform weights, no learning) |
 | Learnable pathway attention v0.7.1 Phase B | Collapse fixed, scalar pole feature converged on magnitude-driven basin (WNT/INTERFERON/MTORC1 LumA; KRAS/MTORC1/PEROXISOME LumB) instead of v0.6 IG-derived ER/cell-cycle basin |
-| **Learnable pathway attention v0.8 Variant C** | **Vector pole feature (proj_dim=16, 17× more pathway-branch parameters than v0.7.1) converged to the SAME wrong basin as v0.7.1. Top-5 weights identical within sub-percentage-point precision on both poles. Interface dimensionality is not the bottleneck — the gene-level branch fully captures discriminative direction, so the pathway branch can only find magnitude variance.** |
+| **Learnable pathway attention v0.8 Variant C** | **Vector pole feature (proj_dim=16, 17× more pathway-branch parameters than v0.7.1) converged to the SAME wrong basin as v0.7.1. Top-5 weights identical within sub-percentage-point precision on both poles. Interface dimensionality is not the bottleneck, the gene-level branch fully captures discriminative direction, so the pathway branch can only find magnitude variance.** |
 | **Closing conclusion (v0.7+v0.8)** | **3 variants confirmed: gene-level commitment is the right architectural level; pathway view should remain post-hoc interpretation (v0.5/v0.6 IG rollup). v0.6 remains canonical.** |
-| **Cross-task generalization (v0.9)** | **Same v0.6 architecture transferred to a new classification axis -- TCGA cohort_v3 Luminal (LumA+LumB) vs Basal -- with the only changes being the cohort file, the pole-defining Hallmark sets, and the class-positive label. TCGA test AUROC = 1.000 (bacc 0.972). Luminal pole top-3 IG = ER_EARLY + ER_LATE + ANDROGEN_RESPONSE (3/3 hand-picked priors). Basal pole top-5 IG = MYC_V1 + G2M + EMT + E2F + MYC_V2 (5/5 priors). 8 / 8 expected pathways in top-5 with zero architecture changes -- framework reusability empirically confirmed.** |
+| **Cross-task generalization (v0.9)** | **Same v0.6 architecture transferred to a new classification axis, TCGA cohort_v3 Luminal (LumA+LumB) vs Basal, with the only changes being the cohort file, the pole-defining Hallmark sets, and the class-positive label. TCGA test AUROC = 1.000 (bacc 0.972). Luminal pole top-3 IG = ER_EARLY + ER_LATE + ANDROGEN_RESPONSE (3/3 hand-picked priors). Basal pole top-5 IG = MYC_V1 + G2M + EMT + E2F + MYC_V2 (5/5 priors). 8 / 8 expected pathways in top-5 with zero architecture changes, framework reusability empirically confirmed.** |
 | **Cross-cohort + cross-task generalization (v0.10)** | **Same v0.9 trained model scored on METABRIC Luminal-vs-Basal n=1,384 (Luminal 1,175 + Basal 209) RNA-only with meth silenced + QN to TCGA train: METABRIC AUROC = 0.965 (bacc 0.842). Same per-pole IG top-3 as TCGA cohort_v3 (Luminal: ER_EARLY + ER_LATE + ANDROGEN; Basal: MYC_V1 + G2M + EMT). 8/8 expected pathways in top-5 AND 3/3 + 3/3 top-3 stable between TCGA and METABRIC. Doubly generalized: cohort-invariant AND task-invariant.** |
-| **5-fold CV stability seal (v0.11)** | **Same v0.9 cohort_v3 + architecture, 5-fold StratifiedKFold (random_state=42): AUROC mean ± std = 1.0000 ± 0.0000 (every fold AUROC = 1.000), bacc 0.9724 ± 0.0091. Per-fold IG top-5: 3/3 Luminal priors hit 5/5 folds, 4/5 Basal priors hit 5/5 folds, 5th (MYC_TARGETS_V2) hits 4/5. Top-3 pairwise Jaccard = 1.0000 on both poles (every fold picked the same top-3). v0.9 / v0.10 finding is split-invariant -- not a lucky single 80/20 split.** |
-| **Cross-cohort split-invariance seal (v0.12-A)** | **TCGA cohort_v2 5-fold StratifiedKFold (random_state=42) × full-METABRIC score per fold (re-fit QN per fold, meth silenced). TCGA val AUROC = 0.9702 ± 0.0122 (v0.6 5-fold ref: 0.954 ± 0.017 — tighter band, +1.6 pp). METABRIC AUROC = 0.9254 ± 0.0052 (v0.4 single-shot ref: 0.909 — +1.6 pp with std = 0.5 pp). Per-fold IG on METABRIC: 2/2 LumA priors hit 5/5 folds; 3/3 LumB priors hit 5/5 folds; LumB top-3 pairwise Jaccard = 1.0000 (LumA Jaccard = 0.7 — structurally bounded by only 2 expected priors). v0.4 / v0.6 cross-cohort finding is split-invariant — the cross-cohort metric is essentially deterministic under split perturbation.** |
+| **5-fold CV stability seal (v0.11)** | **Same v0.9 cohort_v3 + architecture, 5-fold StratifiedKFold (random_state=42): AUROC mean ± std = 1.0000 ± 0.0000 (every fold AUROC = 1.000), bacc 0.9724 ± 0.0091. Per-fold IG top-5: 3/3 Luminal priors hit 5/5 folds, 4/5 Basal priors hit 5/5 folds, 5th (MYC_TARGETS_V2) hits 4/5. Top-3 pairwise Jaccard = 1.0000 on both poles (every fold picked the same top-3). v0.9 / v0.10 finding is split-invariant, not a lucky single 80/20 split.** |
+| **Cross-cohort split-invariance seal (v0.12-A)** | **TCGA cohort_v2 5-fold StratifiedKFold (random_state=42) × full-METABRIC score per fold (re-fit QN per fold, meth silenced). TCGA val AUROC = 0.9702 ± 0.0122 (v0.6 5-fold ref: 0.954 ± 0.017, tighter band, +1.6 pp). METABRIC AUROC = 0.9254 ± 0.0052 (v0.4 single-shot ref: 0.909, +1.6 pp with std = 0.5 pp). Per-fold IG on METABRIC: 2/2 LumA priors hit 5/5 folds; 3/3 LumB priors hit 5/5 folds; LumB top-3 pairwise Jaccard = 1.0000 (LumA Jaccard = 0.7, structurally bounded by only 2 expected priors). v0.4 / v0.6 cross-cohort finding is split-invariant, the cross-cohort metric is essentially deterministic under split perturbation.** |
 
-**The honest takeaway, in fourteen acts:**
+**The takeaway:**
 
 1. **Baseline saturated the easy signal.** Plain LogReg on
    concat(RNA, methylation) lands at 0.963 AUROC on the 417-patient
@@ -86,12 +84,12 @@ proves the *method* and the *engineering*, not the result. See
 2. **Hypothesis-conditioned attention did NOT lift AUROC.** DMOI's primary
    metric ties baseline within noise (Δ ≈ −0.002 on the full v0.1 cohort).
    The dual-perspective architecture's value is **not** in the headline
-   number — the LogReg ceiling reflects the structure of the data, not a
+   number, the LogReg ceiling reflects the structure of the data, not a
    model limitation we can engineer around.
 
 3. **Calibration was the v0.1 win.** Temperature scaling on a held-out
    15% nested calibration split cuts ECE roughly in half on TCGA (0.138 →
-   0.077). T < 1 — the architecture is *under*-confident, not over-confident.
+   0.077). T < 1, the architecture is *under*-confident, not over-confident.
 
 4. **External generalization was the v0.2 win.** A truly held-out TCGA test
    split (random_state=2024, never seen during model dev) scores AUROC 0.968.
@@ -129,7 +127,7 @@ proves the *method* and the *engineering*, not the result. See
    model learned to use it.**
 
 8. **The pathway-level finding survives the catalog-widening sanity
-   check — v0.6.** v0.5 rolled IG into the same 5 Hallmark sets that
+   check, v0.6.** v0.5 rolled IG into the same 5 Hallmark sets that
    were already routed to the pole masks, which raises the obvious
    objection: *did the model only score those pathways highly because
    they were the only ones loaded?* v0.6 answers by loading the full
@@ -144,16 +142,16 @@ proves the *method* and the *engineering*, not the result. See
    The 5-set v0.5 finding wasn't an artifact of which sets were
    loaded.
 
-9. **Learnable pathway-pole attention — v0.7.1 two-phase honest
+9. **Learnable pathway-pole attention, v0.7.1 two-phase documented
    negative.** v0.7 attempted to replace the hand-picked v0.6 pole
    masks with a `softmax`-normalized learnable attention over all 50
    Hallmark pathways (Variant D from
    [`docs/v0.7-design-pathway-attention.md`](docs/v0.7-design-pathway-attention.md)).
    Two phases:
    * **Phase A** (standardized inputs + tight init): attention
-     collapsed to uniform — softmax over zero-centered input plus
+     collapsed to uniform, softmax over zero-centered input plus
      weight decay = self-reinforcing equilibrium of uselessness.
-   * **Phase B** (raw inputs + warm init): collapse fixed — but the
+   * **Phase B** (raw inputs + warm init): collapse fixed, but the
      model learned a different basin than v0.6's IG-derived ranking.
      0/3 v0.6 top-3 overlap on both poles; AUROC dropped.
      Diagnosis: scalar `pole_pathway_feat = sum_k w_k ×
@@ -162,7 +160,7 @@ proves the *method* and the *engineering*, not the result. See
 
    Both phases are recorded in [`audit/dmoi_v0.7.md`](audit/dmoi_v0.7.md).
 
-10. **Variant C confirms gene-level commitment is correct — v0.8
+10. **Variant C confirms gene-level commitment is correct, v0.8
     closure.** v0.8 upgraded the per-pole pathway feature from
     scalar to a 16-dim vector via a learnable
     `Linear(n_pathways, 16)` per pole, giving the classifier head
@@ -187,11 +185,11 @@ proves the *method* and the *engineering*, not the result. See
     analysis in [`audit/dmoi_v0.8.md`](audit/dmoi_v0.8.md).
 
 11. **Same architecture, different axis: framework reusability is
-    real — v0.9.** The v0.6 / v0.7 / v0.8 trilogy worked exclusively
+    real, v0.9.** The v0.6 / v0.7 / v0.8 trilogy worked exclusively
     on LumA-vs-LumB (within the ER+ luminal subtype). v0.9 transferred
     the same v0.6 architecture to a fundamentally different
-    classification axis — cross-lineage **Luminal (LumA + LumB) vs
-    Basal**, n=502 dual-modality (Luminal 415, Basal 87) — with the
+    classification axis, cross-lineage **Luminal (LumA + LumB) vs
+    Basal**, n=502 dual-modality (Luminal 415, Basal 87), with the
     only changes being (1) the cohort file (`cohort_v3.tsv`), (2) the
     pole-defining Hallmark sets (`POLE_LUMINAL` = ER_EARLY + ER_LATE
     + ANDROGEN_RESPONSE; `POLE_BASAL` = EMT + MYC_TARGETS_V1 +
@@ -207,7 +205,7 @@ proves the *method* and the *engineering*, not the result. See
     framework is empirically task-agnostic within DMOI scope.** Full
     write-up in [`audit/dmoi_v0.9.md`](audit/dmoi_v0.9.md).
 
-12. **Doubly generalized: cross-cohort + cross-task — v0.10.** The
+12. **Doubly generalized: cross-cohort + cross-task, v0.10.** The
     v0.9 trained model was scored on the METABRIC cohort_v3
     (Luminal-vs-Basal, n=1,384: Luminal 1,175 + Basal 209,
     different patient population, Illumina HT-12 v3 microarray
@@ -236,7 +234,7 @@ proves the *method* and the *engineering*, not the result. See
     commitment for multi-omics binary subtype classification within
     DMOI scope.**
 
-13. **Stability seal: the four-axis result is split-invariant —
+13. **Stability seal: the four-axis result is split-invariant,
     v0.11.** The natural skeptic's question about v0.9's AUROC =
     1.000 on the single 80/20 split was: *would this hold under a
     different split?* v0.11 ran 5-fold StratifiedKFold
@@ -256,7 +254,7 @@ proves the *method* and the *engineering*, not the result. See
     [`audit/dmoi_v0.11.md`](audit/dmoi_v0.11.md).
 
 14. **Cross-cohort split-invariance: v0.4 / v0.6 cross-cohort
-    metric is essentially deterministic — v0.12-A.** v0.11 sealed
+    metric is essentially deterministic, v0.12-A.** v0.11 sealed
     the Luminal-vs-Basal task as split-invariant on TCGA cohort_v3
     internally. v0.12-A asks the matching question one task axis
     over: is the v0.4 cross-cohort AUROC = 0.909 (METABRIC
@@ -266,18 +264,18 @@ proves the *method* and the *engineering*, not the result. See
     dual-modality, LumA 289 + LumB 128); for each fold, train v0.6
     architecture + score TCGA val fold + score full METABRIC
     LumA-vs-LumB (n=1,175, RNA-only, meth silenced, **QN re-fit
-    per fold against the fold's TCGA-train RNA distribution** —
+    per fold against the fold's TCGA-train RNA distribution**,
     the right thing under proper cross-validation). Result:
     **TCGA val AUROC = 0.9702 ± 0.0122** (+1.6 pp above v0.6
     5-fold reference of 0.954 ± 0.017, with tighter std);
     **METABRIC AUROC = 0.9254 ± 0.0052** (+1.6 pp above v0.4
-    single-shot reference of 0.909, with std = 0.5 pp — essentially
+    single-shot reference of 0.909, with std = 0.5 pp, essentially
     deterministic). Per-fold IG on METABRIC: **2 / 2 LumA expected
     priors (ER_EARLY + ER_LATE) hit top-5 in 5 / 5 folds**; **3 / 3
     LumB expected priors (E2F + G2M + MYC_V1) hit top-5 in 5 / 5
     folds**; LumB top-3 pairwise mean Jaccard = **1.0000** (every
     fold picked the same top-3); LumA top-3 Jaccard = 0.7000
-    (structurally bounded — only 2 expected priors out of 50, so
+    (structurally bounded, only 2 expected priors out of 50, so
     the 3rd top-3 slot must rotate). **The v0.4 / v0.6 cross-cohort
     capability is split-invariant on every measurable dimension.**
     v0.11 + v0.12-A together cover the internal AND cross-cohort
@@ -290,8 +288,8 @@ proves the *method* and the *engineering*, not the result. See
 ## Architecture (one paragraph)
 
 Two pole-specific input masks (LumA, LumB) are derived from MSigDB Hallmark
-gene sets — `ESTROGEN_RESPONSE_EARLY` + `ESTROGEN_RESPONSE_LATE` for LumA;
-`E2F_TARGETS` + `G2M_CHECKPOINT` + `MYC_TARGETS_V1` for LumB — and the HM450
+gene sets, `ESTROGEN_RESPONSE_EARLY` + `ESTROGEN_RESPONSE_LATE` for LumA;
+`E2F_TARGETS` + `G2M_CHECKPOINT` + `MYC_TARGETS_V1` for LumB, and the HM450
 probe-to-gene cis-mapping from UCSC Xena. Each pole branch sees a
 hypothesis-attended view of RNA + methylation through an MLP encoder,
 ending in a sub-classifier supervised with an auxiliary BCE loss
@@ -325,7 +323,7 @@ metric.
 | T fit on | Mean T | Mean ECE on val | Interpretation |
 |---|---|---|---|
 | val (optimistic, upper bound) | 0.620 ± 0.252 | 0.111 | T tuned to the same fold ECE is measured on |
-| **held-out cal split (honest, ship)** | **0.673 ± 0.294** | **0.121** | T never saw the val data |
+| **held-out cal split (held-out, ship)** | **0.673 ± 0.294** | **0.121** | T never saw the val data |
 
 T < 1 means DMOI is **under-confident**: the pole-conditioned architecture
 plus class-balanced BCE compress logits toward zero. Calibration *sharpens*.
@@ -342,7 +340,7 @@ Option A model trained on the full train split for the CV-mean best epoch
 - ECE before T-scaling : 0.143
 - ECE after T-scaling  : **0.079**  (T=0.634)
 
-Test ≥ CV is unusual but in the right direction — the model isn't overfitting
+Test ≥ CV is unusual but in the right direction, the model isn't overfitting
 to the CV folds.
 
 ---
@@ -389,7 +387,7 @@ boosts LumB calls without tuning, gaining +0.072 sensitivity and +0.024
 BalAcc. The data-tuned threshold lands at 0.425, exactly the direction
 Bayes predicts. Both corrections triangulate to the same conclusion: **the
 prior shift explains about half of the sensitivity asymmetry. The remainder
-is the methylation-silencing residual** — the meth branch normally
+is the methylation-silencing residual**, the meth branch normally
 contributes positive signal for harder LumB calls, and without it some
 borderline cases are unrecoverable from RNA alone.
 
@@ -400,7 +398,7 @@ independent cohort across platforms (HiSeq → Illumina HT-12 v3) with
 quantile normalization and gene-symbol harmonization (16,890 shared genes
 out of 20,530 TCGA / 20,384 METABRIC unique Hugo symbols).
 
-It does NOT validate the dual-modality story — no public BRCA cohort has
+It does NOT validate the dual-modality story, no public BRCA cohort has
 paired RNA-seq + HM450 outside TCGA. See
 [`docs/v0.2-design-external-validation.md`](docs/v0.2-design-external-validation.md)
 for the recon trail.
@@ -433,7 +431,7 @@ the algorithm + scope rationale.
 - **lumA pole learned "this is NOT basal-like" + the canonical luminal gene.**
   FOXC1 (basal/myoepithelial transcription factor) anchors the top spot;
   the LumA pole's strongest discriminative signal is its *low* expression
-  in LumA. BCL2 — the canonical anti-apoptotic luminal marker — ranks
+  in LumA. BCL2, the canonical anti-apoptotic luminal marker, ranks
   second. The rest of the top-5 (PDLIM3, TUBB2B, EGR3) are cytoskeletal /
   early-response markers that distinguish LumA's lower-proliferation
   phenotype from LumB.
@@ -441,7 +439,7 @@ the algorithm + scope rationale.
   transport during mitosis), NBN (nibrin / DNA damage response), ZW10
   (mitotic checkpoint), and POLA2 (DNA polymerase α subunit) are all
   proliferation- and replication-stress genes. Not the textbook
-  MKI67/TOP2A/AURKA but biologically equivalent — many gene proxies
+  MKI67/TOP2A/AURKA but biologically equivalent, many gene proxies
   exist for the proliferation axis and the model picked DNA-damage and
   mitotic-machinery ones.
 - **ESR1 / PGR / FOXA1 are correctly absent from the top attributions.**
@@ -456,7 +454,7 @@ the algorithm + scope rationale.
 |---|---|---|---|
 | **lumA_pole** | 0.0023 | 0.0182 | tight |
 | **lumB_pole** | 0.0022 | 0.0112 | tight |
-| final_logit | 0.0205 | 0.3425 | one outlier — likely from the disagreement scalar `\|s_LumA − (1 − s_LumB)\|` which has a non-differentiable `abs()` at 0; the pole-specific attributions are the recommended clinical-interpretability headline |
+| final_logit | 0.0205 | 0.3425 | one outlier, likely from the disagreement scalar `\|s_LumA − (1 − s_LumB)\|` which has a non-differentiable `abs()` at 0; the pole-specific attributions are the recommended clinical-interpretability headline |
 
 Full per-patient + global lists:
 [`audit/dmoi_explain_v0.3.md`](audit/dmoi_explain_v0.3.md),
@@ -469,19 +467,19 @@ Full per-patient + global lists:
 
 Same IG pipeline as v0.3, applied to the METABRIC external cohort with
 the methylation branch silenced (METABRIC has no HM450). Validates
-whether the model's biology — not just its AUROC — generalizes.
+whether the model's biology, not just its AUROC, generalizes.
 
 ### Cross-cohort top-K agreement
 
 | Target | Jaccard top-10 | Jaccard top-50 | Verdict |
 |---|---|---|---|
-| **lumA_pole** | **0.667** | **0.786** | Strong — biology generalizes |
-| **lumB_pole** | **0.667** | 0.538 | Strong — biology generalizes |
+| **lumA_pole** | **0.667** | **0.786** | Strong, biology generalizes |
+| **lumB_pole** | **0.667** | 0.538 | Strong, biology generalizes |
 | final_logit | 0.538 | 0.724 | Moderate; final logit has the disagreement-scalar instability |
 
 ### Shared top-10 lumA pole genes (TCGA test ∩ METABRIC)
 
-`FOXC1`, `BCL2`, `PDLIM3`, `TUBB2B`, `KRT15`, `EGR3`, `RAB17`, `AHNAK` — every lumA
+`FOXC1`, `BCL2`, `PDLIM3`, `TUBB2B`, `KRT15`, `EGR3`, `RAB17`, `AHNAK`, every lumA
 headline gene from the v0.3 TCGA-test attribution also appears in the
 METABRIC top-10. The "inverse-basal-marker + BCL2" story is confirmed
 on an independent cohort.
@@ -552,11 +550,11 @@ holds with the same ratios on a completely independent METABRIC cohort.
 
 For both pole-specific targets, every top-3 pathway is shared between
 TCGA and METABRIC. The lumA `G2M_CHECKPOINT` entry is a small-magnitude
-placeholder (its score is ~75× smaller than the dominant ER pathways) —
+placeholder (its score is ~75× smaller than the dominant ER pathways),
 present in the top-3 only because there are only five pathways in the
 aggregation.
 
-### Honest scope (v0.5)
+### Scope (v0.5)
 
 Only the 5 Hallmark sets in `priors.py` are aggregated. The full
 50-set MSigDB Hallmark catalog would let a wider unsupervised
@@ -585,13 +583,13 @@ same METABRIC cohort.
 
 | Target | TCGA test top-3 of 50 | METABRIC top-3 of 50 | v0.5 top-pathway(s) survive? |
 |---|---|---|---|
-| **lumA_pole** | `ESTROGEN_RESPONSE_EARLY`, `ESTROGEN_RESPONSE_LATE`, `IL2_STAT5_SIGNALING` | `ESTROGEN_RESPONSE_EARLY`, `ESTROGEN_RESPONSE_LATE`, `IL2_STAT5_SIGNALING` | **Yes** — both ER sets in top-3 on both cohorts |
-| **lumB_pole** | `MYC_TARGETS_V1`, `E2F_TARGETS`, `G2M_CHECKPOINT` | `E2F_TARGETS`, `G2M_CHECKPOINT`, `MYC_TARGETS_V1` | **Yes** — same 3 cell-cycle sets dominate both cohorts (rank order swaps within a near-tie) |
-| `final_logit` | `ESTROGEN_RESPONSE_EARLY`, `ESTROGEN_RESPONSE_LATE`, `G2M_CHECKPOINT` | `ESTROGEN_RESPONSE_EARLY`, `ESTROGEN_RESPONSE_LATE`, `G2M_CHECKPOINT` | **Yes** — identical top-3 across cohorts |
+| **lumA_pole** | `ESTROGEN_RESPONSE_EARLY`, `ESTROGEN_RESPONSE_LATE`, `IL2_STAT5_SIGNALING` | `ESTROGEN_RESPONSE_EARLY`, `ESTROGEN_RESPONSE_LATE`, `IL2_STAT5_SIGNALING` | **Yes**, both ER sets in top-3 on both cohorts |
+| **lumB_pole** | `MYC_TARGETS_V1`, `E2F_TARGETS`, `G2M_CHECKPOINT` | `E2F_TARGETS`, `G2M_CHECKPOINT`, `MYC_TARGETS_V1` | **Yes**, same 3 cell-cycle sets dominate both cohorts (rank order swaps within a near-tie) |
+| `final_logit` | `ESTROGEN_RESPONSE_EARLY`, `ESTROGEN_RESPONSE_LATE`, `G2M_CHECKPOINT` | `ESTROGEN_RESPONSE_EARLY`, `ESTROGEN_RESPONSE_LATE`, `G2M_CHECKPOINT` | **Yes**, identical top-3 across cohorts |
 
 The 5-set v0.5 finding wasn't an artifact of which sets were loaded.
 
-### New honest secondary findings (only visible with the full catalog)
+### New secondary findings (only visible with the full catalog)
 
 - **`IL2_STAT5_SIGNALING` joins lumA top-3** on both cohorts (TCGA test
   mean |IG| 0.00096; METABRIC 0.00101). STAT5 is a known co-regulator
@@ -603,7 +601,7 @@ The 5-set v0.5 finding wasn't an artifact of which sets were loaded.
   programs; the model is loading the entire cell-cycle / growth axis,
   not just one pathway.
 - **No surprise non-proliferation, non-ER pathway** appears in either
-  pole's top-5 — the architectural prior catches the biology that's
+  pole's top-5, the architectural prior catches the biology that's
   actually there.
 
 ### Pathway-level pole-specificity (full 50-set view)
@@ -616,13 +614,13 @@ The 5-set v0.5 finding wasn't an artifact of which sets were loaded.
 | **lumB_pole** | METABRIC  | `E2F_TARGETS` (0.00355)            | same                                                     | dominant cell-cycle |
 
 The exact magnitude ratios drift run-to-run (because each version
-re-trains a fresh model), but the **structure** — lumA pole stacks ER
-at the top, lumB pole stacks cell-cycle at the top — is stable across
+re-trains a fresh model), but the **structure**, lumA pole stacks ER
+at the top, lumB pole stacks cell-cycle at the top, is stable across
 v0.5 (5-set) and v0.6 (50-set) on both cohorts.
 
-### Honest scope (v0.6)
+### Scope (v0.6)
 
-- 50 Hallmark sets loaded — the full v2024.1.Hs catalog. The C2 curated
+- 50 Hallmark sets loaded, the full v2024.1.Hs catalog. The C2 curated
   catalog (~5,000 sets) and other MSigDB collections remain out of
   scope.
 - Aggregation is still RNA-only. METABRIC has no methylation; even on
@@ -641,7 +639,7 @@ mean |IG|).
 
 ---
 
-## Learnable pathway-pole attention (v0.7.1 — two-phase honest negative)
+## Learnable pathway-pole attention (v0.7.1, two-phase documented negative)
 
 v0.7 tried to replace v0.6's hand-picked Hallmark pole masks with a
 learnable softmax distribution over all 50 Hallmark pathways per pole
@@ -653,7 +651,7 @@ cell-cycle-for-LumB alignment from scratch?*
 
 v0.7.1 answer: **no in two distinct ways, each instructive.**
 
-### Phase A — standardized inputs + tight init (collapse)
+### Phase A, standardized inputs + tight init (collapse)
 
 | Cohort | AUROC | vs v0.6 |
 |---|---|---|
@@ -661,20 +659,20 @@ v0.7.1 answer: **no in two distinct ways, each instructive.**
 | METABRIC  | 0.913 | +0.004 |
 
 Top weights spanned 0.0203 – 0.0205 across all 50 pathways on both
-poles — effectively uniform (1/50 = 0.0200). 0/3 v0.6 top-3 made the
+poles, effectively uniform (1/50 = 0.0200). 0/3 v0.6 top-3 made the
 Phase A top-3. **Mechanism**: pathway scores were standardized to
 zero mean; softmax-uniform attention × zero-centered input = zero
 output; head learns to ignore; no gradient back; attention stays
-uniform forever — a self-reinforcing equilibrium of uselessness.
+uniform forever, a self-reinforcing equilibrium of uselessness.
 
-### Phase B — raw inputs + warm init (collapse fixed; wrong basin)
+### Phase B, raw inputs + warm init (collapse fixed; wrong basin)
 
 | Cohort | AUROC | vs v0.6 | vs Phase A |
 |---|---|---|---|
 | TCGA test | 0.960 | −0.009 | +0.003 |
 | METABRIC  | 0.898 | −0.012 | −0.016 |
 
-Collapse fixed — LumA top weight 0.069 (3.4× uniform), LumB top
+Collapse fixed, LumA top weight 0.069 (3.4× uniform), LumB top
 weight 0.048 (2.4× uniform). The attention *learns*. But:
 
 | Pole | Phase B top-3 | v0.6 IG top-3 | Shared |
@@ -694,7 +692,7 @@ big patient-to-patient variance but no class-discriminative
 direction. AUROC drops because the new branch is competing with the
 gene-level branch and adding noise.
 
-### v0.8 Variant C result — same wrong basin, architecture experiment closed
+### v0.8 Variant C result, same wrong basin, architecture experiment closed
 
 v0.8 ran the planned Variant C upgrade: the per-pole pathway feature
 becomes a 16-dim vector via a learnable `Linear(n_pathways, 16)` per
@@ -724,7 +722,7 @@ This is the decisive finding of the v0.7 + v0.8 experiment. The
 gradient signal reaching the pathway branch is *what the gene-level
 branch hasn't already explained*. The gene-level encoder sees ESR1,
 PGR, FOXA1, RANBP1, NBN, ZW10, and the rest, and resolves the
-LumA-vs-LumB decision there — at the gene level, in the direction
+LumA-vs-LumB decision there, at the gene level, in the direction
 axis. The pathway branch is left to grip whatever residual is left,
 and that residual happens to be pathway-magnitude variance (which
 pathways have high baseline absolute expression in any given
@@ -732,7 +730,7 @@ patient), not pathway-direction signal (which pole-relevant program
 is up vs down).
 
 **Whether the head reads one scalar or 32 features per patient does
-not change what gradient flows back** — the same magnitude-driven
+not change what gradient flows back**, the same magnitude-driven
 basin is found either way. The matched-basin convergence is
 information-theoretic evidence that gene-level commitment is the
 right architectural level for LumA-vs-LumB, and that the pathway
@@ -756,17 +754,17 @@ two-phase write-up) + [`audit/dmoi_v0.8.md`](audit/dmoi_v0.8.md)
 
 ---
 
-## Cross-task generalization (v0.9 -- Luminal vs Basal)
+## Cross-task generalization (v0.9, Luminal vs Basal)
 
 The v0.6 / v0.7 / v0.8 trilogy worked exclusively on LumA-vs-LumB.
 v0.9 transferred the same v0.6 architecture to **Luminal (LumA +
-LumB) vs Basal** -- a cross-lineage classification on a new cohort
+LumB) vs Basal**, a cross-lineage classification on a new cohort
 of 502 dual-modality patients (Luminal 415, Basal 87 per
 `PAM50Call_RNAseq`, stratified 80/20 split with `random_state=2024`).
 
 ### What changed
 
-- `data/tcga_brca/cohort_v3.tsv` -- built by
+- `data/tcga_brca/cohort_v3.tsv`, built by
   [`scripts/build_cohort_v3.py`](scripts/build_cohort_v3.py).
 - `POLE_LUMINAL` (ER_EARLY + ER_LATE + ANDROGEN_RESPONSE) +
   `POLE_BASAL` (EMT + MYC_TARGETS_V1 + G2M_CHECKPOINT) added to
@@ -781,7 +779,7 @@ of 502 dual-modality patients (Luminal 415, Basal 87 per
 - `DMOIModel.forward` uses `pole_order[0]` / `pole_order[1]` for the
   disagreement scalar and the head input (instead of hardcoded
   `"LumA"` / `"LumB"`).
-- `scripts/eval_dmoi_v0.9.py` -- new driver. ~250 LOC, clones the
+- `scripts/eval_dmoi_v0.9.py`, new driver. ~250 LOC, clones the
   v0.7 driver pattern but uses cohort_v3 + Luminal/Basal poles +
   Hallmark gmt override.
 
@@ -804,8 +802,8 @@ attention, encoder, or classifier head.**
 | **Basal**   | `MYC_TARGETS_V1`, `G2M_CHECKPOINT`, `EPITHELIAL_MESENCHYMAL_TRANSITION`, `E2F_TARGETS`, `MYC_TARGETS_V2` | EMT + MYC_TARGETS_V1 + G2M_CHECKPOINT + E2F_TARGETS + MYC_TARGETS_V2 | **5 / 5** |
 
 **8 / 8** expected pathways in top-5 per pole, with zero architecture
-changes. The `final_logit` top-3 -- `ESTROGEN_RESPONSE_EARLY`,
-`ESTROGEN_RESPONSE_LATE`, `ANDROGEN_RESPONSE` -- mirrors the Luminal
+changes. The `final_logit` top-3, `ESTROGEN_RESPONSE_EARLY`,
+`ESTROGEN_RESPONSE_LATE`, `ANDROGEN_RESPONSE`, mirrors the Luminal
 pole because Luminal is the majority class; signed-IG analysis
 confirms the model is correctly identifying Luminal patients via
 high ER expression and Basal patients via high cell-cycle + EMT
@@ -818,7 +816,7 @@ within DMOI scope. The v0.6 architecture is empirically task-agnostic:
 the same model, training loop, and IG analysis pipeline pick up the
 Luminal-vs-Basal biology cleanly when given Luminal-vs-Basal priors
 and labels. The 8 / 8 expected-prior hit rate is what makes it
-decisive -- AUROC = 1.000 alone could be cohort-easy artifact, but
+decisive, AUROC = 1.000 alone could be cohort-easy artifact, but
 the IG ranking confirms the model is leveraging the wired biology, not
 a shortcut.
 
@@ -835,14 +833,14 @@ Full report: [`audit/dmoi_v0.9.md`](audit/dmoi_v0.9.md).
 
 ---
 
-## Cross-cohort + cross-task generalization (v0.10 -- METABRIC)
+## Cross-cohort + cross-task generalization (v0.10, METABRIC)
 
 v0.4 / v0.6 already validated cross-cohort generalization on the
 LumA-vs-LumB axis (METABRIC RNA-only AUROC 0.909, Jaccard 0.667
 gene-level). v0.9 validated cross-task generalization (Luminal-vs-Basal
 on TCGA, AUROC 1.000, 8/8 priors). v0.10 composes the two: trains the
 v0.9 model on TCGA cohort_v3, scores **METABRIC cohort_v3
-(Luminal-vs-Basal, n=1,384 -- Luminal 1,175 + Basal 209)** with the
+(Luminal-vs-Basal, n=1,384, Luminal 1,175 + Basal 209)** with the
 same RNA-only + meth-silenced + QN-to-TCGA protocol from v0.2 / v0.4.
 
 ### Result
@@ -858,15 +856,15 @@ same RNA-only + meth-silenced + QN-to-TCGA protocol from v0.2 / v0.4.
 | **Luminal** | `ESTROGEN_RESPONSE_EARLY`, `ESTROGEN_RESPONSE_LATE`, `ANDROGEN_RESPONSE` | `ESTROGEN_RESPONSE_EARLY`, `ESTROGEN_RESPONSE_LATE`, `ANDROGEN_RESPONSE` | **3 / 3** |
 | **Basal**   | `MYC_TARGETS_V1`, `G2M_CHECKPOINT`, `EPITHELIAL_MESENCHYMAL_TRANSITION` | `MYC_TARGETS_V1`, `G2M_CHECKPOINT`, `EPITHELIAL_MESENCHYMAL_TRANSITION` | **3 / 3** |
 
-3 / 3 top-3 stability on both poles between TCGA and METABRIC --
+3 / 3 top-3 stability on both poles between TCGA and METABRIC,
 the per-pole biology recovered by the model is cohort-invariant.
 The 5.6 pp METABRIC-AUROC lift over the v0.4 LumA-vs-LumB reference
 (0.965 vs 0.909) reflects the intrinsically easier separability of
 the cross-lineage axis, but the 8/8 expected-prior hit on METABRIC
-is the decisive metric -- the framework is recovering the wired
+is the decisive metric, the framework is recovering the wired
 biology cleanly across both axes of variation.
 
-### Closure -- v0.6 → v0.10 reads as four-axis framework reusability
+### Closure, v0.6 → v0.10 reads as four-axis framework reusability
 
 | Axis | Evidence | Where |
 |---|---|---|
@@ -878,9 +876,7 @@ biology cleanly across both axes of variation.
 The v0.7 + v0.8 three-variant architecture experiment further showed
 that adding a trainable pathway-attention branch is structurally
 redundant (gene-level commitment captures all discriminative
-direction signal). Together, v0.6 → v0.10 read as: **found, tested,
-generalized across cohort, generalized across task, generalized
-across both**. Gene-level hypothesis-conditioned attention +
+direction signal). Across v0.6 to v0.10, the result was found, then tested, then generalized across cohort, across task, and across both. Gene-level hypothesis-conditioned attention +
 hand-picked pole priors + post-hoc Hallmark IG rollup is empirically
 the right architectural commitment for multi-omics binary subtype
 classification within DMOI scope.
@@ -937,9 +933,9 @@ python scripts/aggregate_pathway_ig_full.py  # ~7 min on MPS
 # 11. (v0.7.1) Learnable pathway-pole attention (scalar pole feature, Phase B).
 python scripts/eval_dmoi_v0.7.py             # ~7 min on MPS
                                               # writes audit/dmoi_v0.7.md
-                                              # Two-phase documented honest negative
+                                              # Two-phase documented documented negative
 
-# 12. (v0.8) Variant C -- vector pole feature (proj_dim=16, 17x more params).
+# 12. (v0.8) Variant C, vector pole feature (proj_dim=16, 17x more params).
 python scripts/eval_dmoi_v0.8.py             # ~7 min on MPS
                                               # writes audit/dmoi_v0.8.md
                                               # Closes the v0.7+v0.8 architecture experiment:
@@ -1019,7 +1015,7 @@ See [`docs/what-is-out-of-scope.md`](docs/what-is-out-of-scope.md) for the
 full list. Key items still deliberately deferred after v0.8:
 
 - **Multi-modal external validation.** No public BRCA cohort outside TCGA
-  has paired RNA-seq + HM450 — see the v0.2 design doc for the recon.
+  has paired RNA-seq + HM450, see the v0.2 design doc for the recon.
 - **Other pole hypotheses** (ER−/HER2+, basal vs claudin-low).
 - **Variant E / auxiliary direction supervision.** Force the
   pathway-attention to match the v0.6 IG-derived ranking via an
@@ -1039,7 +1035,7 @@ full list. Key items still deliberately deferred after v0.8:
 - **Methylation pathway rollup.** The Hallmark aggregation is
   RNA-only; HM450 probes need a probe → gene crosswalk first.
 - **Counterfactual explanations** ("what would need to change to flip the
-  prediction") — adversarial-style, much heavier than IG.
+  prediction"), adversarial-style, much heavier than IG.
 - **Nested CV for hyperparameter tuning**. `calibration_frac=0.15` is a
   fixed choice carried over from Guo et al., not swept.
 

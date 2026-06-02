@@ -32,5 +32,5 @@ python scripts/build_cohort.py
 ## Notes
 
 - PAM50 source: `PAM50Call_RNAseq` (primary, ~956/1247 coverage) with fallback to `PAM50_mRNA_nature2012` (long-form labels normalized).
-- Other PAM50 subtypes (Her2-enriched, Normal-like) are excluded from the POC — DMOI POC contrasts the H+ vs H- poles only.
+- Other PAM50 subtypes (Her2-enriched, Normal-like) are excluded from the POC, DMOI POC contrasts the H+ vs H- poles only.
 - `cohort.tsv` lives under `data/` and is gitignored (sample IDs are TCGA barcodes, derived from open-tier data but kept out of git per the scaffold's data-handling convention).

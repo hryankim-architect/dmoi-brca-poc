@@ -2,7 +2,7 @@
 
 ## File
 
-`h.all.v2024.1.Hs.symbols.gmt` — the 50 MSigDB Hallmark gene sets,
+`h.all.v2024.1.Hs.symbols.gmt`, the 50 MSigDB Hallmark gene sets,
 human gene symbols, MSigDB release v2024.1.Hs.
 
 - 50 sets

@@ -1,4 +1,4 @@
-# DMOI v0.10 -- METABRIC cross-cohort + cross-task generalization
+# DMOI v0.10, METABRIC cross-cohort + cross-task generalization
 
 Generated: 2026-05-28T18:01:17Z
 
@@ -85,7 +85,7 @@ pathways are preserved.
 | **Luminal** | `ESTROGEN_RESPONSE_EARLY`, `ESTROGEN_RESPONSE_LATE`, `ANDROGEN_RESPONSE` | `ESTROGEN_RESPONSE_EARLY`, `ESTROGEN_RESPONSE_LATE`, `ANDROGEN_RESPONSE` | **3 / 3** |
 | **Basal**   | `MYC_TARGETS_V1`, `G2M_CHECKPOINT`, `EPITHELIAL_MESENCHYMAL_TRANSITION` | `MYC_TARGETS_V1`, `G2M_CHECKPOINT`, `EPITHELIAL_MESENCHYMAL_TRANSITION` | **3 / 3** |
 
-3 / 3 on both poles -- the Luminal-vs-Basal biology recovered by the
+3 / 3 on both poles, the Luminal-vs-Basal biology recovered by the
 v0.9 model is cohort-invariant. METABRIC microarray RNA on the HT-12
 v3 platform, after quantile-normalization to TCGA HiSeq, gives the
 same per-pole IG ranking as the source TCGA RNA-seq cohort.
@@ -105,7 +105,7 @@ empirically validated:
 
 The v0.7 + v0.8 three-variant architecture experiment further showed
 that adding a trainable pathway-attention branch on top of this
-framework is **structurally redundant** -- the gene-level branch
+framework is **structurally redundant**, the gene-level branch
 captures all the discriminative direction signal, so learnable
 pathway-level attention can only find magnitude variance regardless
 of interface dimensionality. Together, v0.6 -> v0.10 read as:
@@ -118,13 +118,13 @@ of interface dimensionality. Together, v0.6 -> v0.10 read as:
 4. **Confirmed** framework reusability across cohorts too (v0.10:
    AUROC 0.965, 8/8 priors, 3/3 + 3/3 top-3 stable).
 
-The v0.6 framework -- gene-level hypothesis-conditioned attention +
-hand-picked pole priors + post-hoc Hallmark IG rollup -- is
+The v0.6 framework, gene-level hypothesis-conditioned attention +
+hand-picked pole priors + post-hoc Hallmark IG rollup, is
 **empirically the right architectural commitment for multi-omics
 binary subtype classification within the DMOI scope**, validated
 across cohorts, tasks, and classifier variants.
 
-## Honest scope
+## Scope
 
 - Same architecture as v0.9 / v0.6 (no model changes); only the
   external scoring cohort changes.

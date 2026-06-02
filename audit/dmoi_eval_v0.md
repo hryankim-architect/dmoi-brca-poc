@@ -35,7 +35,7 @@ Three architectural variants. All share the same encoder + attention
 
 Interpretation:
 - **Δ A − B**: does the auxiliary supervision on sub-classifiers add value?
-  + If > +0.005: aux supervision sharpens the disagreement signal — Option A wins.
+  + If > +0.005: aux supervision sharpens the disagreement signal, Option A wins.
   + If ≈ 0: aux didn't help meaningfully; v0.1 (Option B) was already near-optimal.
   + If < 0: aux supervision over-constrained the sub-classifiers; revisit weight.
 - **Δ A − Ablation**: is the dual-perspective architecture (with supervised sub-clfs)
@@ -57,7 +57,7 @@ Single-parameter post-hoc calibration via Guo et al. 2017:
 BCE NLL of each fold's val logits.
 
 **Caveat (v0.1):** T is fit on the same val fold we measure ECE on,
-which is **optimistic** — it's an upper bound on what post-hoc
+which is **optimistic**, it's an upper bound on what post-hoc
 calibration can buy with this architecture on this cohort.
 v0.2+ should fit T on a nested calibration split carved out of
 the train fold.
@@ -69,11 +69,11 @@ the train fold.
 - **Mean ECE before → after** : **0.1567 → 0.1110**
 - **Δ ECE (improvement)** : **+0.0457**
 
-## Temperature scaling calibration — nested split (Option A, honest)
+## Temperature scaling calibration, nested split (Option A)
 
 Each fold also held out 15% of its train data (stratified on y) as a
 calibration split that the model never trained on. T is fit on those
-cal logits and applied to val. This is the **honest** number — no
+cal logits and applied to val. This is the held-out number, no
 double-dipping between fit and evaluation.
 
 - Cal split fraction : **15%** of each train fold (stratified)
@@ -81,14 +81,14 @@ double-dipping between fit and evaluation.
 - Per-fold T (nested) : ['0.515', '0.605', '0.551', '0.502', '1.194']
 - Per-fold ECE on val (T fit on cal split) : ['0.1488', '0.0957', '0.1155', '0.0968', '0.1458']
 - **Mean ECE before → after (nested)** : **0.1567 → 0.1205**
-- **Δ ECE (honest improvement)** : **+0.0362**
+- **Δ ECE (improvement)** : **+0.0362**
 
 Comparison:
 
 | T fit on | Mean T | Mean ECE on val | Notes |
 |---|---|---|---|
-| val (optimistic) | 0.620 | 0.1110 | upper bound — T tuned to the same fold |
-| held-out cal split (honest) | 0.673 | 0.1205 | what generalizes |
+| val (optimistic) | 0.620 | 0.1110 | upper bound, T tuned to the same fold |
+| held-out cal split (held-out) | 0.673 | 0.1205 | what generalizes |
 
 ## Held-out TCGA test (v0.2 Path C, 80/20 split)
 

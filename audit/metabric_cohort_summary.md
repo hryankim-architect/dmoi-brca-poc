@@ -28,7 +28,7 @@ does NOT validate the dual-modality story.
 METABRIC distribution of CLAUDIN_SUBTYPE (all 1,980 PAM50-called):
 - LumA 700 / LumB 475 (this cohort)
 - claudin-low 218 / Her2 224 / Basal 209 / Normal 148 / NC 6
-  (excluded — out of scope for DMOI's LumA-vs-LumB target)
+  (excluded, out of scope for DMOI's LumA-vs-LumB target)
 
 ## Reproduce
 

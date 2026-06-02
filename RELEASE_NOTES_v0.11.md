@@ -1,4 +1,4 @@
-# DMOI v0.11 -- 5-fold CV stability seal
+# DMOI v0.11, 5-fold CV stability seal
 
 **Date:** 2026-05-28
 **Tag:** v0.11
@@ -10,7 +10,7 @@ v0.9 reported TCGA cohort_v3 Luminal-vs-Basal AUROC = 1.000 on a
 single 80/20 split. v0.10 then transferred the same trained model to
 METABRIC cohort_v3 (AUROC = 0.965, 8 / 8 priors, 3 / 3 + 3 / 3 top-3
 stable). The natural skeptic's question was: *would the AUROC = 1.000
-hold under a different split?* v0.11 answers: yes -- every fold of a
+hold under a different split?* v0.11 answers: yes, every fold of a
 5-fold StratifiedKFold (random_state=42) reached AUROC = 1.000
 (mean ± std = 1.0000 ± 0.0000). The pole-pathway biology recovery is
 fold-invariant: top-3 pairwise mean Jaccard = 1.0000 on both poles.
@@ -52,7 +52,7 @@ same top-3 pathways on both poles.
 
 ## What changed
 
-- `scripts/eval_dmoi_v0.11_cv.py` -- new driver. Runs the same v0.6
+- `scripts/eval_dmoi_v0.11_cv.py`, new driver. Runs the same v0.6
   base architecture (n_pathways=0) on cohort_v3 with
   `run_dmoi_cv(n_splits=5, random_state=42, pole_order=("Luminal",
   "Basal"))`. Per-fold IG rollup reconstructs each val fold via
@@ -62,13 +62,13 @@ same top-3 pathways on both poles.
   pathway scores per pole, and records per-fold top-K + cross-fold
   Jaccard.
 
-- `audit/dmoi_v0.11.md` -- 5-fold CV variance band + per-fold table
+- `audit/dmoi_v0.11.md`, 5-fold CV variance band + per-fold table
   + pathway frequency + top-3 pairwise Jaccard + closure analysis.
 
-- `README.md` -- v0.10 → v0.11 headline section; 12 acts → 13 acts;
+- `README.md`, v0.10 → v0.11 headline section; 12 acts → 13 acts;
   new headline row pinning the stability seal.
 
-No code changes to `src/dmoi_brca/` -- v0.11 is purely a CV stability
+No code changes to `src/dmoi_brca/`, v0.11 is purely a CV stability
 check on the v0.9 / v0.10 architecture commitment.
 
 ## Reproduce
@@ -80,7 +80,7 @@ python scripts/eval_dmoi_v0.11_cv.py
 Runs in ~3 minutes on an M-series Mac after the cohort_v3 features
 are cached.
 
-## Honest scope
+## Scope
 
 - Same architecture, same priors, same data as v0.9 / v0.10. Only
   the train/val split varies across folds.
@@ -88,13 +88,13 @@ are cached.
   was a single held-out test split where best-epoch selection would
   be leakage; CV protocol uses a real val fold per split).
 - Each val fold has ~17 Basal patients, so the AUROC variance band
-  is wider than the v0.9 single-split test (n=18 Basal) -- but the
+  is wider than the v0.9 single-split test (n=18 Basal), but the
   fact that every fold reached 1.000 makes the variance moot.
-- The fold-5 `MYC_TARGETS_V2` drop-out is documented honestly: it
+- The fold-5 `MYC_TARGETS_V2` drop-out is documented candidly: it
   remains a positive contributor below rank 5, not a sign-flip; the
   pole-pathway IG ratio still points in the ESTROGEN_RESPONSE vs
   cell-cycle direction.
-- No METABRIC scoring here -- v0.10 already validated the
+- No METABRIC scoring here, v0.10 already validated the
   cross-cohort axis. v0.11 is purely a v0.9 TCGA stability check.
 
 ## The 13-act DMOI narrative
@@ -103,15 +103,15 @@ The v0.6 → v0.11 sequence closes a complete falsifiable
 architectural inquiry across **four orthogonal axes of
 reusability**:
 
-1. **Calibration transfer** -- T < 1 under-confident finding;
+1. **Calibration transfer**, T < 1 under-confident finding;
    cohort-specific `T_TCGA=0.634` vs `T_METABRIC=0.934`; ECE
    0.138 → 0.077 (v0.1 / v0.2).
-2. **Cross-cohort same-task** -- LumA-vs-LumB METABRIC AUROC =
+2. **Cross-cohort same-task**, LumA-vs-LumB METABRIC AUROC =
    0.909; gene-level Jaccard top-10 = 0.667 (v0.4).
-3. **Cross-task same-cohort** -- Luminal-vs-Basal TCGA cohort_v3
+3. **Cross-task same-cohort**, Luminal-vs-Basal TCGA cohort_v3
    AUROC = 1.000; 8 / 8 expected Hallmark priors in per-pole IG
    top-5 (v0.9).
-4. **Cross-cohort + cross-task** -- Luminal-vs-Basal METABRIC AUROC
+4. **Cross-cohort + cross-task**, Luminal-vs-Basal METABRIC AUROC
    = 0.965; 8 / 8 priors; 3 / 3 + 3 / 3 top-3 stable vs TCGA
    (v0.10).
 
@@ -123,4 +123,4 @@ result is split-invariant.
 
 **The architectural commitment is itself a falsifiable claim that
 has been tested across split, cohort, task, and an adversarial
-alternative architecture -- and has survived every test.**
+alternative architecture, and has survived every test.**

@@ -1,4 +1,4 @@
-# DMOI v0.8 -- Pathway-pole attention (Variant C: vector-per-pole)
+# DMOI v0.8, Pathway-pole attention (Variant C: vector-per-pole)
 
 Generated: 2026-05-28T12:03:30Z (proj_dim=16)
 
@@ -23,7 +23,7 @@ v0.7.1 (scalar pole feature) captured pathway *magnitude* variance only and chos
 
 ## Learned pathway-pole attention (top 10 per pole)
 
-Note: with Variant C, the `softmax weight` is no longer the only signal between attention and head -- the per-pole projection row absorbs much of the direction-encoding. The softmax distribution still indicates which pathways the model considers each pole's primary inputs, but with a vector interface the model has another knob to turn.
+Note: with Variant C, the `softmax weight` is no longer the only signal between attention and head, the per-pole projection row absorbs much of the direction-encoding. The softmax distribution still indicates which pathways the model considers each pole's primary inputs, but with a vector interface the model has another knob to turn.
 
 ### LumA
 
@@ -55,7 +55,7 @@ Note: with Variant C, the `softmax weight` is no longer the only signal between 
 | 9 | `HALLMARK_ANGIOGENESIS` | 0.0291 |
 | 10 | `HALLMARK_TNFA_SIGNALING_VIA_NFKB` | 0.0290 |
 
-## v0.6 (post-hoc IG) vs v0.8 (learned attention) -- top-3 agreement
+## v0.6 (post-hoc IG) vs v0.8 (learned attention), top-3 agreement
 
 v0.6 top-3 per pole comes from `audit/dmoi_pathway_v0.6.md` (50-set Hallmark IG rollup, identical on TCGA test + METABRIC).
 
@@ -66,11 +66,11 @@ v0.6 top-3 per pole comes from `audit/dmoi_pathway_v0.6.md` (50-set Hallmark IG 
 
 ## Reading
 
-- `softmax weight` -- each pole's attention weights sum to 1.0 across the 50 pathways. Weight = 0.02 means "uniform" (1/50). Anything above 0.05 is a meaningful preference; above 0.20 is strong concentration.
+- `softmax weight`, each pole's attention weights sum to 1.0 across the 50 pathways. Weight = 0.02 means "uniform" (1/50). Anything above 0.05 is a meaningful preference; above 0.20 is strong concentration.
 - Agreement count is informational, not a hypothesis test.
 - The per-pole projection adds n_poles * n_pathways * proj_dim = 1600 parameters over v0.7.1.
 
-## Closure analysis -- v0.7 + v0.8 architecture experiment
+## Closure analysis, v0.7 + v0.8 architecture experiment
 
 Three variants of "learnable pathway-pole attention as an extension to
 v0.6's hand-picked pole masks" have now been tested end-to-end. All
@@ -85,7 +85,7 @@ three failed, in three distinct and informative ways:
 The decisive finding is that v0.8 with 17x more pathway-branch
 parameters and a fundamentally richer head interface (32 features vs
 2) converged on the **same** WNT/INTERFERON/MTORC1 (LumA) and
-KRAS/MTORC1/PEROXISOME (LumB) pathways as v0.7.1's scalar mode --
+KRAS/MTORC1/PEROXISOME (LumB) pathways as v0.7.1's scalar mode,
 within sub-percentage-point precision on the top-5 weights. The
 interface dimensionality is not what was holding v0.7.1 back from
 finding the v0.6 IG ranking.
@@ -93,11 +93,11 @@ finding the v0.6 IG ranking.
 What was holding it back, then? The gradient signal flowing through
 the pathway branch is pre-determined by what the gene-level branch
 already explains. The gene-level encoder sees ESR1, PGR, FOXA1,
-RANBP1, NBN, ZW10, the cell-cycle structural genes -- and resolves
+RANBP1, NBN, ZW10, the cell-cycle structural genes, and resolves
 the LumA-vs-LumB decision there. By the time the head sees the
 pathway feature, its gradient signal is whatever the gene-level
 branch hasn't already explained. And what the gene-level branch
-hasn't explained turns out to be **pathway-magnitude variance** --
+hasn't explained turns out to be **pathway-magnitude variance**,
 which the head can grip whether it gets one scalar per pole or
 sixteen. It is NOT pathway-direction signal toward ER vs cell-cycle,
 because that signal is already entirely captured upstream.
@@ -126,7 +126,7 @@ interpretation lens, not a training signal.
 
 ### What the v0.6 row in the capability table now reads as
 
-"DMOI v0.6 (canonical architecture) -- gene-level hypothesis-conditioned
+"DMOI v0.6 (canonical architecture), gene-level hypothesis-conditioned
 attention with 5 hand-picked Hallmark pole masks. AUROC 0.968 TCGA
 test / 0.909 METABRIC. Cross-cohort gene-level Jaccard 0.667; full
 50-set Hallmark rollup confirms ER ~300x stronger than cell-cycle
@@ -136,11 +136,11 @@ test whether the pole masks could be replaced with learnable softmax
 attention; all 3 variants confirmed gene-level commitment is the
 right architectural level and the pathway view is properly post-hoc.**"
 
-## Honest scope
+## Scope
 
 - Single-fold final-model run (no CV). The v0.8 Variant C architecture diff is what's under test.
 - proj_dim=16 is a chosen hyperparameter; not swept (proj_dim=4 / 8 / 32 / 64 may shift the picture marginally, but the v0.7.1 vs v0.8 same-basin result is robust evidence that interface dimensionality is not the bottleneck).
-- Gene-level interpretation (v0.3 / v0.4 IG) is unaffected -- the gene-level branch is unchanged from v0.6.
+- Gene-level interpretation (v0.3 / v0.4 IG) is unaffected, the gene-level branch is unchanged from v0.6.
 - The METABRIC +1.1pp lift vs v0.6 is within run-to-run noise; not a real result.
 
 ## Reproduce

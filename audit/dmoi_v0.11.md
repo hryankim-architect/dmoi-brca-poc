@@ -1,4 +1,4 @@
-# DMOI v0.11 -- 5-fold CV stability check for v0.9 Luminal-vs-Basal
+# DMOI v0.11, 5-fold CV stability check for v0.9 Luminal-vs-Basal
 
 Generated: 2026-05-28T19:58:49Z
 
@@ -29,7 +29,7 @@ Generated: 2026-05-28T19:58:49Z
 
 ## Cross-fold pathway frequency (5-fold stability of v0.9 priors hit)
 
-### Luminal pole -- frequency in per-fold top-5 (out of 5 folds)
+### Luminal pole, frequency in per-fold top-5 (out of 5 folds)
 
 | Pathway | Frequency |
 |---|---|
@@ -37,7 +37,7 @@ Generated: 2026-05-28T19:58:49Z
 | `HALLMARK_ESTROGEN_RESPONSE_EARLY` | 5 / 5 |
 | `HALLMARK_ESTROGEN_RESPONSE_LATE` | 5 / 5 |
 
-### Basal pole -- frequency in per-fold top-5 (out of 5 folds)
+### Basal pole, frequency in per-fold top-5 (out of 5 folds)
 
 | Pathway | Frequency |
 |---|---|
@@ -61,7 +61,7 @@ v0.11 quantifies the natural skeptic's question about v0.9's AUROC = 1.000 on th
 
 - If AUROC mean is >= 0.99 and std <= 0.015, the v0.9 finding is decisively stable.
 - If priors-hit frequency is 5/5 for all 8 expected pathways, v0.9's per-pole biology recovery is fold-invariant.
-- If top-3 Jaccard is >= 0.8, the cohort_v3 / Luminal-vs-Basal task is structurally easy enough that the top-3 is essentially fixed -- consistent with the cohort_v3 LogReg baseline being near-saturated and the gene-level architecture commitment carrying that signal cleanly.
+- If top-3 Jaccard is >= 0.8, the cohort_v3 / Luminal-vs-Basal task is structurally easy enough that the top-3 is essentially fixed, consistent with the cohort_v3 LogReg baseline being near-saturated and the gene-level architecture commitment carrying that signal cleanly.
 
 ## Closure analysis
 
@@ -72,7 +72,7 @@ result with std = 0.0000. The biology recovery is fold-invariant:
 7 of 8 expected priors (3 / 3 Luminal + 4 / 5 Basal) hit per-fold IG
 top-5 in 5 of 5 folds, with only HALLMARK_MYC_TARGETS_V2 dropping out
 of top-5 in fold 5 (still present as a positive contributor below
-the rank-5 cutoff -- the pole-pathway IG ratio remains in the
+the rank-5 cutoff, the pole-pathway IG ratio remains in the
 ESTROGEN_RESPONSE vs cell-cycle direction reported in v0.9 / v0.10).
 The pairwise mean Jaccard of 1.0000 on both poles means every fold
 selected the same top-3 pathways; the gene-level architecture
@@ -85,15 +85,15 @@ cross-cohort + cross-task result was not riding a single lucky
 split; v0.9's single-split AUROC = 1.000 generalises across every
 StratifiedKFold(random_state=42) partition tested.
 
-## Honest scope
+## Scope
 
 - Same architecture and priors as v0.9. Only the train/val split changes across folds.
 - pick_best_epoch=True is the standard CV protocol; v0.9 used pick_best_epoch=False because val was a held-out test split.
 - Each val fold has ~17 Basal patients; AUROC variance is wider than the v0.9 single-split test (n=18 Basal) but the variance band is the actual deliverable.
 - No METABRIC scoring here; v0.10 already validated cross-
   cohort. v0.11 is purely a v0.9 TCGA stability check.
-- The fold-5 MYC_TARGETS_V2 drop-out is documented honestly: 4 / 5
-  basal priors hit 5 / 5 folds, the fifth hits 4 / 5 -- still well
+- The fold-5 MYC_TARGETS_V2 drop-out is documented candidly: 4 / 5
+  basal priors hit 5 / 5 folds, the fifth hits 4 / 5, still well
   above any noise-floor expectation for a 5-set top-5 selection over
   50 Hallmark sets.
 
