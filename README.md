@@ -651,7 +651,7 @@ cell-cycle-for-LumB alignment from scratch?*
 
 v0.7.1 answer: **no in two distinct ways, each instructive.**
 
-### Phase A, standardized inputs + tight init (collapse)
+### Phase A: standardized inputs + tight init (collapse)
 
 | Cohort | AUROC | vs v0.6 |
 |---|---|---|
@@ -665,7 +665,7 @@ zero mean; softmax-uniform attention × zero-centered input = zero
 output; head learns to ignore; no gradient back; attention stays
 uniform forever, a self-reinforcing equilibrium of uselessness.
 
-### Phase B, raw inputs + warm init (collapse fixed; wrong basin)
+### Phase B: raw inputs + warm init (collapse fixed; wrong basin)
 
 | Cohort | AUROC | vs v0.6 | vs Phase A |
 |---|---|---|---|
@@ -692,7 +692,7 @@ big patient-to-patient variance but no class-discriminative
 direction. AUROC drops because the new branch is competing with the
 gene-level branch and adding noise.
 
-### v0.8 Variant C result, same wrong basin, architecture experiment closed
+### v0.8 Variant C result: same wrong basin, architecture experiment closed
 
 v0.8 ran the planned Variant C upgrade: the per-pole pathway feature
 becomes a 16-dim vector via a learnable `Linear(n_pathways, 16)` per
@@ -864,7 +864,7 @@ the cross-lineage axis, but the 8/8 expected-prior hit on METABRIC
 is the decisive metric, the framework is recovering the wired
 biology cleanly across both axes of variation.
 
-### Closure, v0.6 → v0.10 reads as four-axis framework reusability
+### Closure: v0.6 → v0.10 reads as four-axis framework reusability
 
 | Axis | Evidence | Where |
 |---|---|---|
