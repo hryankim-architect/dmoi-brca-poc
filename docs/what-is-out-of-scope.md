@@ -56,9 +56,11 @@ Anything that does not serve that single demonstration is out of scope.
 - **Methylation branch on METABRIC**. *METABRIC has no HM450 data; the external
   test runs RNA-only with the meth branch silenced, and imputing methylation is
   out of scope.*
-- **BRCA subtype axes beyond LumA-vs-LumB and Luminal-vs-Basal** (HER2-enriched,
-  normal-like, PAM50 5-class). *Two axes already demonstrate task-reusability;
-  the full PAM50 problem is not the point being made.*
+- **BRCA subtype axes beyond LumA-vs-LumB, Luminal-vs-Basal, and HER2-vs-Luminal**
+  (normal-like, claudin-low, PAM50 5-class). *Three axes now demonstrate
+  task-reusability (HER2-vs-Luminal added in v0.14); the full PAM50 problem is
+  not the point being made.* HER2-vs-Luminal moved **in scope as of v0.14**
+  (`scripts/eval_dmoi_v0.14.py`; see `audit/dmoi_v0.14.md`).
 - **Survival, outcome, or therapy-response modeling**. *This repo is a subtype
   *classification* portrait; time-to-event and treatment-response live in other
   capability portraits.*

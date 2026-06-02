@@ -190,6 +190,22 @@ POLE_BASAL: tuple[str, ...] = (
     "HALLMARK_G2M_CHECKPOINT",
 )
 
+# v0.14: pole-pair for HER2-enriched vs Luminal classification.
+# No Hallmark "HER2" set exists, so the HER2 pole is defined by ERBB2-downstream
+# oncogenic biology (PI3K/AKT/mTOR) plus the proliferation signal HER2+ tumors
+# carry, contrasted against the Luminal ER axis. Like POLE_LUMINAL/POLE_BASAL,
+# these reference the full 50-set catalog and require the caller to pass
+# `make_pole_masks(..., hallmark_sets=<full catalog>)`.
+POLE_HER2: tuple[str, ...] = (
+    "HALLMARK_PI3K_AKT_MTOR_SIGNALING",
+    "HALLMARK_MTORC1_SIGNALING",
+    "HALLMARK_G2M_CHECKPOINT",
+)
+POLE_LUMINAL_ER: tuple[str, ...] = (
+    "HALLMARK_ESTROGEN_RESPONSE_EARLY",
+    "HALLMARK_ESTROGEN_RESPONSE_LATE",
+)
+
 HALLMARK_SETS: dict[str, tuple[str, ...]] = {
     "HALLMARK_ESTROGEN_RESPONSE_EARLY": HALLMARK_ESTROGEN_RESPONSE_EARLY,
     "HALLMARK_ESTROGEN_RESPONSE_LATE": HALLMARK_ESTROGEN_RESPONSE_LATE,

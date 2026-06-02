@@ -27,6 +27,7 @@ and the two task axes are sealed as split-invariant under 5-fold CV.
 | Cross-cohort same-task (→ METABRIC) | AUROC **0.9254 ± 0.0052** (5-fold, std = 0.5 pp) | v0.4 → v0.12-A |
 | Cross-task same-cohort (Luminal-vs-Basal, TCGA) | AUROC **1.0000 ± 0.0000** (5-fold) | v0.9 → v0.11 |
 | Cross-cohort + cross-task (→ METABRIC) | AUROC **0.965**, 8/8 expected priors hit | v0.10 |
+| Cross-task #2 + cross-cohort (HER2-vs-Luminal) | TCGA 5-fold AUROC **0.892 ± 0.056** / METABRIC **0.893**; 5/5 expected priors fold-invariant (ER vs PI3K-MTOR-G2M) | v0.14 |
 | Calibration transfer | within-cohort ECE **0.138 → 0.077**; cross-cohort: raw METABRIC ECE **0.074** ≈ labelled oracle (no T-transfer beats leaving probabilities raw) | v0.1 / v0.2 / v0.13 |
 | Adversarial check | 3-variant experiment **falsified** trainable pathway-attention | v0.7 / v0.8 |
 
