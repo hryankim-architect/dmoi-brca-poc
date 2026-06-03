@@ -56,7 +56,7 @@ A consistently green canary means substrate-level monitoring detects regressions
 - No async runtime.
 - No process supervisor.
 - No container per pipeline stage (single Python process throughout).
-- No data-validation framework beyond Pydantic on demand.
+- Input validation is ad hoc (Pydantic where it helps), not a framework.
 - No DAG engine (Nextflow, Airflow, etc.). Those belong inside the pipeline body when a project needs them, not in the scaffold itself.
 
 The scaffold defines the contract. The body implements the science.
