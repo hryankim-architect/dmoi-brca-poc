@@ -1,6 +1,6 @@
 """Defensive vocabulary handling against upstream public datasets (Lω).
 
-When a capability-portrait pipeline filters against an external vocabulary
+When a demo pipeline filters against an external vocabulary
 (TCGA / GDC / Xena / ENCODE / Ensembl / any upstream public source), the
 vocabulary may differ across mirrors or drift across releases. This module
 provides reusable helpers for filtering with fallback columns + failing

@@ -1,4 +1,4 @@
-"""dmoi_brca: capability-portrait scaffold for bioinformatics R&D repos.
+"""dmoi_brca: bioinformatics R&D scaffold for the BRCA digital molecular oncology project.
 
 Rename this package to your project's name when you create a new repo from
 this template. The substrate hooks in :mod:`dmoi_brca.audit`,

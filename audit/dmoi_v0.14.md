@@ -74,7 +74,7 @@ Expected HER2-pole top-5 to include {PI3K_AKT_MTOR, MTORC1, G2M_CHECKPOINT}.
 - Luminal pole top-5 ∩ expected = 2 / 2 : `HALLMARK_ESTROGEN_RESPONSE_EARLY`, `HALLMARK_ESTROGEN_RESPONSE_LATE`
 - HER2 pole top-5 ∩ expected = 3 / 3 : `HALLMARK_G2M_CHECKPOINT`, `HALLMARK_MTORC1_SIGNALING`, `HALLMARK_PI3K_AKT_MTOR_SIGNALING`
 
-## Honest scope
+## What the numbers support
 
 - HER2+ is the small TCGA class (train HER2=46, test HER2=12). The single-split TCGA AUROC is noisy; the METABRIC external (HER2 n=224) carries the statistical weight. A 5-fold CV variant is the natural follow-up before quoting a TCGA headline.
 - Definitional difference across cohorts: TCGA HER2 = clinical HER2+ (HER2_Final_Status); METABRIC HER2 = PAM50 'Her2' (CLAUDIN_SUBTYPE). Recorded as a cross-cohort caveat.

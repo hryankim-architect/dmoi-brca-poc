@@ -24,10 +24,7 @@ planning doc, not a commitment — each promotion still goes through the
 
 An out-of-scope item is worth promoting only if it scores well on all four:
 
-1. **Reinforces the thesis.** The repo's value is a *reusable
-   hypothesis-conditioned architecture* plus **calibration** and
-   **interpretability** — not a higher headline AUROC. A promotion should
-   deepen one of those, not chase the number.
+1. **Reinforces the thesis.** The repo demonstrates that the DMOI hypothesis-conditioned architecture transfers across cohort, task, and split. Calibration and interpretability are first-class outputs alongside AUROC. A promotion should deepen one of those, not chase a higher number.
 2. **Stays "small and complete."** Bounded effort, reproducible on one
    workstation in minutes, no sprawling new subsystem.
 3. **Uses data already on hand.** TCGA-BRCA (RNA + HM450) and METABRIC
@@ -76,16 +73,14 @@ lowest-data-cost next step.
   cohort-shift correction (e.g. re-fit `T` on a tiny METABRIC calibration slice,
   or a logit-distribution alignment between cohorts).
 - Report ECE / Brier / reliability-curve for each on the same held-out scores.
-- Honest framing: if a transferable calibrator only partially closes the gap,
-  *that result is the deliverable* (consistent with the repo's "honest scope"
-  voice).
+- If a transferable calibrator only partially closes the gap, report it as-is. A partial result is still a result.
 
 **Data / entry points.** Reuses `eval_external.py`, `train_dmoi.py`'s temperature
 step, existing METABRIC cohort builders. No new download.
 
 **Acceptance**
 - Reliability table across the 4 conditions, on TCGA test and METABRIC.
-- Hash-chained NDJSON audit + MLflow run logged; canary still green.
+- NDJSON audit entries emitted (hash-chained per entry) + MLflow run logged; canary still green.
 - New `tests/test_calibration_transfer.py`.
 - README "four axes" table gains a calibration-transfer row;
   `what-is-out-of-scope.md` updated (item moved out of the out-of-scope list
@@ -204,8 +199,7 @@ Each promoted item is not "done" until all of the following hold:
 
 1. Reproducible entry point (`python scripts/...`) runs on a workstation in
    minutes and is documented in `scripts/README.md`.
-2. **Hash-chained NDJSON audit** entries emitted; **MLflow** run tracked;
-   **canary** smoke test green.
+2. NDJSON audit entries emitted (each chained by hash to the previous); MLflow run tracked; canary smoke test green.
 3. Tests added; `ci.yml` and `english-only` CI both pass.
 4. README updated (the relevant results table + reproducibility note).
 5. `docs/what-is-out-of-scope.md` edited in the *same change* — the item is

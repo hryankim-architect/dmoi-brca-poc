@@ -49,10 +49,10 @@ Generated: 2026-06-02T18:08:15Z
 - Luminal pole top-3 mean pairwise Jaccard : **0.6000**
 - HER2    pole top-3 mean pairwise Jaccard : **1.0000**
 
-## Honest scope
+## What the numbers support
 
 - Same architecture and priors as v0.14 single-split. Only the train/val split changes across folds.
-- HER2 is the small class (~12 per val fold); the AUROC band is wider than a larger-cohort axis would give -- that width is the honest deliverable, and METABRIC (n=224 HER2) carries the cross-cohort weight.
+- HER2 is the small class (~12 per val fold); the AUROC band is wider than a larger-cohort axis would give. That wide band is the actual result; METABRIC (n=224 HER2) carries the cross-cohort weight.
 - No METABRIC scoring here; eval_dmoi_v0.14.py covers cross-cohort. v0.14 CV is purely a TCGA stability check.
 
 ## Reproduce

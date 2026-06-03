@@ -2,8 +2,7 @@
 
 ![ci](https://github.com/hryankim-architect/dmoi-brca-poc/actions/workflows/ci.yml/badge.svg) ![english-only](https://github.com/hryankim-architect/dmoi-brca-poc/actions/workflows/english-only.yml/badge.svg)
 
-> **Capability portrait, not a research result.** Public data is intentionally
-> subsetted to keep the demo small and reproducible on a single workstation.
+This repo uses TCGA-BRCA RNA-seq + HM450 methylation data, intentionally subsetted to keep evaluation fast and outputs fully reproducible. METABRIC (RNA-only, n=1,175–1,399) serves as the external validation cohort throughout.
 
 **What this shows.** A hypothesis-conditioned multi-omics architecture
 (Dialectical Multi-Omics Integration, DMOI) on TCGA-BRCA. Two "pole" perspectives
@@ -38,13 +37,9 @@ evaluation in about 2 minutes on an M-series Mac.
 `python scripts/eval_external.py` adds the METABRIC external test
 in another ~3 minutes (after a one-time ~690 MB METABRIC download).
 
-**Substrate.** Emits hash-chained NDJSON audit entries, tracks MLflow runs,
-exposes a canary smoke test for `lab_semantic_check.py`.
+**Substrate.** Emits NDJSON audit entries (each entry chained to the previous by hash), tracks MLflow runs, exposes a canary smoke test for `lab_semantic_check.py`.
 
-**Production framing.** A version of this method ran at full cohort scale on
-proprietary multi-omics data during my time in industry. The lab version here
-proves the *method* and the *engineering*, not the result. See
-[`docs/what-is-out-of-scope.md`](docs/what-is-out-of-scope.md).
+**Industry context.** A version of this method ran at full cohort scale on proprietary multi-omics data. This lab implementation demonstrates the method and the engineering pipeline, not those production-scale results. See [`docs/what-is-out-of-scope.md`](docs/what-is-out-of-scope.md).
 
 ---
 

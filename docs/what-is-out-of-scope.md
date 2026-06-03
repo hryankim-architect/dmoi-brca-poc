@@ -6,11 +6,7 @@ it as part of the review checklist.
 
 ## Why this file exists
 
-A capability-portrait repo's value comes from being *small and complete*. The
-single largest risk to that value is the steady accumulation of "while we're
-here, let's also..." additions. This file is the anti-scope-creep ledger.
-If a PR proposes something on this list, the PR template asks the contributor
-to answer one question:
+This repo's value comes from being *small and complete*. The main risk is gradual scope drift from "while we're here" additions. This file tracks what is explicitly off the table. If a PR proposes something on this list, the PR template asks the contributor to answer one question:
 
 > Why is this still out of scope?
 
@@ -28,8 +24,7 @@ good, the PR doesn't land.
   "minimum subset" claim.
 - **Multi-cohort meta-analysis**. Out of scope unless this repo's capability
   *is* meta-analysis.
-- **Production hardening** (HA, RBAC, multi-tenant). The substrate provides
-  the foundation; the capability portrait does not re-implement it.
+- **Production hardening** (HA, RBAC, multi-tenant). The substrate provides the foundation; this repo does not re-implement it.
 - **Cost optimization for cloud deployment**. The demo runs on a single
   workstation; cloud cost is by definition out of scope.
 
@@ -61,9 +56,7 @@ Anything that does not serve that single demonstration is out of scope.
   task-reusability (HER2-vs-Luminal added in v0.14); the full PAM50 problem is
   not the point being made.* HER2-vs-Luminal moved **in scope as of v0.14**
   (`scripts/eval_dmoi_v0.14.py`; see `audit/dmoi_v0.14.md`).
-- **Survival, outcome, or therapy-response modeling**. *This repo is a subtype
-  *classification* portrait; time-to-event and treatment-response live in other
-  capability portraits.*
+- **Survival, outcome, or therapy-response modeling**. *This repo is a subtype classification demo; time-to-event and treatment-response belong in separate repos.*
 - **Wet-lab or causal validation of the attributed genes/pathways**. *Integrated
   Gradients attributions are interpretive evidence that the model uses sensible
   biology, not mechanistic claims to be experimentally confirmed.*

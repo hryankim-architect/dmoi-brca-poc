@@ -12,7 +12,7 @@ regardless of total probe count. RNA-seq (20k genes) is small enough to load
 whole with pandas.
 
 Missing values: probes with NA in any cohort sample are excluded (permissive
-baseline; no imputation in capability-portrait scope).
+baseline; no imputation in demo scope).
 """
 from __future__ import annotations
 
