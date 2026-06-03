@@ -1,103 +1,62 @@
 # Architecture
 
-This template imposes a deliberately small architecture. The point is that
-every capability-portrait repo inheriting the scaffold has the same shape, so
-a reviewer can navigate any of them in 30 seconds.
+This repo keeps a small, flat architecture. One Python process drives everything. The goal is reproducibility: a reviewer should be able to read the source, run `make run`, and trace every output back to a logged audit event.
 
-## The control flow
+## Control flow
 
-```
-                  ┌──────────────────────────────────────┐
-                  │  make run                            │
-                  │  (or scripts/run_lab.sh on a node)   │
-                  └─────────────────┬────────────────────┘
-                                    │
-                                    ▼
-                  ┌──────────────────────────────────────┐
-                  │  dmoi_brca.pipeline.run_pipeline   │
-                  └─────────────────┬────────────────────┘
-                                    │
-       ┌────────────────────────────┼────────────────────────────┐
-       │                            │                            │
-       ▼                            ▼                            ▼
-┌───────────────┐         ┌───────────────────┐         ┌─────────────────┐
-│ audit.emit    │         │ tracking.run      │         │  body  (per-    │
-│ (NDJSON +     │         │ (MLflow active    │         │  project, e.g.  │
-│  optional     │         │  run context)     │         │  VCF → HRD,     │
-│  POST to      │         │                   │         │  Cellpose seg., │
-│  AUDIT_HOST)  │         │                   │         │  classifier.)   │
-└───────┬───────┘         └─────────┬─────────┘         └────────┬────────┘
-        │                           │                            │
-        └───────────────────────────┴────────────────────────────┘
-                                    │
-                                    ▼
-                  ┌──────────────────────────────────────┐
-                  │  artifact JSON + metrics             │
-                  └──────────────────────────────────────┘
-```
+`make run` (or `scripts/run_lab.sh` on a compute node) calls `dmoi_brca.pipeline.run_pipeline`. That function opens three concurrent concerns: it emits a structured audit event via `dmoi_brca.audit`, it opens an MLflow run context via `dmoi_brca.tracking`, and it executes the project body (VCF → HRD scoring, Cellpose segmentation, or classifier training depending on the stage). All three finish before the pipeline returns the artifact JSON and metrics.
+
+## Pipeline stages, audit events, and outputs
+
+| Stage | Audit event emitted | Primary output |
+|---|---|---|
+| Data fetch | `fetch.start` / `fetch.done` | checksum-verified files under `data/` |
+| Pipeline run | `pipeline.start` / `pipeline.done` | artifact JSON under `artifacts/` |
+| Canary probe | `canary.start` / `canary.pass` (or `canary.fail`) | exit code 0 or non-zero |
+| Audit verify | — (read-only) | `(ok, n_entries, first_bad_ts)` tuple |
 
 ## Substrate integration points
 
-The scaffold integrates with the Polish-Phase5 substrate through three
-loosely-coupled channels:
+The scaffold connects to the Polish-Phase5 substrate through three loosely-coupled channels. Each one is optional: remove the environment variable and the channel silently becomes a no-op. The local NDJSON ledger on disk stays authoritative for audit regardless of whether the remote post succeeds.
 
-| Channel | Module | Env var | Substrate endpoint |
+| Channel | Module | Env var | Endpoint |
 |---|---|---|---|
 | Audit (immutable record) | `dmoi_brca.audit` | `AUDIT_HOST` | `http://${AUDIT_HOST}/events` |
 | MLflow (experiment tracking) | `dmoi_brca.tracking` | `MLFLOW_TRACKING_URI` | configurable |
 | Canary (daily probe) | `dmoi_brca.canary` | `BIOSCAFFOLD_CANARY_FIXTURE` | invoked by `lab_semantic_check.py` |
 
-All three channels degrade to no-ops when the substrate is absent. The
-deterministic local NDJSON ledger remains the source of truth for audit
-even when the remote post fails.
+## How the audit ledger works
 
-## Why a hash-chained NDJSON ledger
+Each NDJSON entry carries a `prev_hash` field set to the SHA-256 of the canonical JSON (keys sorted, no extra whitespace) of the entry before it. Any insertion or modification invalidates the hash of every subsequent entry. The `audit.verify()` function walks the chain in one pass and returns `(ok, n_entries, first_bad_ts)`.
 
-Every entry's `prev_hash` is the SHA-256 of the canonical (sorted, separator-
-controlled) JSON of the preceding entry. Tampering anywhere in the chain
-invalidates the hash of every following entry. The `audit.verify()` function
-walks the chain and returns `(ok, n_entries, first_bad_ts)`.
-
-In the Polish-Phase5 substrate this runs at ~6.19 µs/entry up to 10k entries,
-with a measured tamper-detect of ~6 ms (full chain re-verify). Capability-
-portrait repos do not need that scale; they inherit the format for
-*consistency* across the quartet, so the substrate's `gatk_audit.py` verifier
-works against any of them.
+On the Polish-Phase5 substrate this runs at roughly 6.19 µs per entry up to 10k entries, with a tamper-detect time of about 6 ms for a full chain re-verify. This repo does not exercise that scale, but it uses the same format so the substrate's `gatk_audit.py` verifier works against it without modification.
 
 ## Why MLflow
 
-Three reasons, in order:
+Three reasons:
 
-1. **Experiment tracking**, parameters and metrics are version-controlled
-   alongside the run, so the demo's output is reproducible.
-2. **Substrate consistency**, every repo in the quartet posts to the same
-   MLflow server, so a reviewer can compare runs across projects.
-3. **No-op when absent**, the wrapper means the demo works without an MLflow
-   server, so a recruiter cloning the repo on a laptop still sees `make run`
-   succeed.
+1. Parameters and metrics are version-controlled alongside the run, so the demo output is reproducible without retaining a separate notes file.
+2. The no-op wrapper means `make run` succeeds on a laptop with no MLflow server. A reviewer cloning this repo gets a working run regardless of their environment.
+3. When the substrate is available, other repos in this portfolio post to the same MLflow server, so runs can be compared across projects in one UI.
 
 ## Why a deterministic canary
 
-The canary is the entry point that the Polish-Phase5 `lab_semantic_check.py`
-probes daily. Its requirements are:
+The canary is what `lab_semantic_check.py` probes on a daily schedule. It must be:
 
-- Deterministic input (fixture-driven).
-- Under 30 seconds to complete.
-- Exits 0 on success, non-zero on any deviation.
-- No external services required.
+- Fixture-driven, so the result is deterministic across machines.
+- Under 30 seconds end-to-end.
+- Exit 0 on success, non-zero on any deviation from the expected output.
+- Self-contained, no external services.
 
-A daily-green canary across the quartet means substrate-level monitoring
-catches regressions in any of the four capability projects without the
-projects themselves needing custom alerting.
+A consistently green canary means substrate-level monitoring detects regressions in this repo without any repo-specific alerting infrastructure.
 
 ## What this architecture intentionally avoids
 
 - No microservices.
 - No async runtime.
 - No process supervisor.
-- No container per pipeline (the scaffold runs in a single Python process).
-- No data validation framework beyond Pydantic-on-demand.
-- No DAG engine (Nextflow, Airflow, etc.), those belong inside the body
-  when a project needs them (P1 specifically), not in the scaffold.
+- No container per pipeline stage (single Python process throughout).
+- No data-validation framework beyond Pydantic on demand.
+- No DAG engine (Nextflow, Airflow, etc.). Those belong inside the pipeline body when a project needs them, not in the scaffold itself.
 
-The point is that the scaffold is the *contract*, not the implementation.
+The scaffold defines the contract. The body implements the science.

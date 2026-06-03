@@ -71,10 +71,4 @@ Anything that does not serve that single demonstration is out of scope.
 
 ## How to add an item
 
-Open a PR that:
-
-1. Adds the item to the appropriate section above.
-2. Adds a one-sentence reason in italics.
-3. Links to the PR or issue where the item was originally proposed.
-
-That's it. The friction is intentional.
+Open a PR that does three things: places the item in the right section above, states the reason in one italicised sentence, and points to the originating issue or PR. Reviewers will ask why the item belongs here if the reason is not self-evident. That question is the whole point — a slow list stays accurate.

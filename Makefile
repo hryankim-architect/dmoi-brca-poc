@@ -20,7 +20,7 @@ help:
 	@echo "make report       Render demo notebook to HTML at reports/demo.html"
 	@echo "make lint         ruff check"
 	@echo "make canary       Run the deterministic canary smoke test"
-	@echo "make  Check the honest-scope preamble is present in README"
+	@echo "make ci           ruff + pytest + canary + English-only/CJK scan"
 	@echo "make clean        Remove build artifacts (raw data left alone)"
 
 install:
