@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # DMOI POC Day-4 — commit + push helper.
-# Avoids zsh BANG_HIST (Polish-Phase5-Lχ) by using heredoc commit messages.
+# Avoids zsh BANG_HIST (the lab-Lχ) by using heredoc commit messages.
 # Tolerant of missing local ruff/pytest (CI is the source of truth).
 set -euo pipefail
 cd "$(dirname "$0")/.."

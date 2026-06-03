@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # DMOI POC Day-5B: Hallmark gene set priors for LumA vs LumB hypothesis-conditioning.
 # Also bundles cleanup #154 (sklearn 1.8 penalty deprecation).
-# Avoids zsh BANG_HIST (Polish-Phase5-Lχ) via heredoc commit messages.
+# Avoids zsh BANG_HIST (the lab-Lχ) via heredoc commit messages.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # DMOI POC Day-5A: Week-2 re-scope to within-luminal LumA vs LumB.
 # Day-4 (a4d0511) already shipped — this commit adds cohort v2 + new baseline.
-# Avoids zsh BANG_HIST (Polish-Phase5-Lχ) via heredoc commit messages.
+# Avoids zsh BANG_HIST (the lab-Lχ) via heredoc commit messages.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 

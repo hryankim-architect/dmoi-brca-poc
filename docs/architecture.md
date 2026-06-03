@@ -17,7 +17,7 @@ This repo keeps a small, flat architecture. One Python process drives everything
 
 ## Substrate integration points
 
-The scaffold connects to the Polish-Phase5 substrate through three loosely-coupled channels. Each one is optional: remove the environment variable and the channel silently becomes a no-op. The local NDJSON ledger on disk stays authoritative for audit regardless of whether the remote post succeeds.
+The scaffold connects to the substrate through three loosely-coupled channels. Each one is optional: remove the environment variable and the channel silently becomes a no-op. The local NDJSON ledger on disk stays authoritative for audit regardless of whether the remote post succeeds.
 
 | Channel | Module | Env var | Endpoint |
 |---|---|---|---|
@@ -29,7 +29,7 @@ The scaffold connects to the Polish-Phase5 substrate through three loosely-coupl
 
 Each NDJSON entry carries a `prev_hash` field set to the SHA-256 of the canonical JSON (keys sorted, no extra whitespace) of the entry before it. Any insertion or modification invalidates the hash of every subsequent entry. The `audit.verify()` function walks the chain in one pass and returns `(ok, n_entries, first_bad_ts)`.
 
-On the Polish-Phase5 substrate this runs at roughly 6.19 µs per entry up to 10k entries, with a tamper-detect time of about 6 ms for a full chain re-verify. This repo does not exercise that scale, but it uses the same format so the substrate's `gatk_audit.py` verifier works against it without modification.
+On the substrate this runs at roughly 6.19 µs per entry up to 10k entries, with a tamper-detect time of about 6 ms for a full chain re-verify. This repo does not exercise that scale, but it uses the same format so the substrate's `gatk_audit.py` verifier works against it without modification.
 
 ## Why MLflow
 

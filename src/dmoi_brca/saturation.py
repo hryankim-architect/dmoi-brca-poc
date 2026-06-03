@@ -1,4 +1,4 @@
-"""Saturation detection as a substrate primitive (Polish-Phase5 Lσ).
+"""Saturation detection as a substrate primitive (Lσ).
 
 When a baseline classifier returns near-perfect metrics (AUROC >= 0.99,
 F1 = 1.0, etc.), that result is structurally ambiguous: it means either

@@ -3,7 +3,7 @@
 
 The R6 convention is: internal docs may be Korean+English, but every public
 GitHub artifact (code, README, lessons-learned, architecture docs) must be
-English-only. This scanner enforces that as a CI gate.
+English-only. A local pre-commit hook runs this scanner before each commit.
 
 Paths scanned by default:
     README.md, src/**/*.py, tests/**/*.py, docs/**/*.md, scripts/**/*.sh
