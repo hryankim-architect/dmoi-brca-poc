@@ -68,7 +68,7 @@ Generated: 2026-05-28T10:46:44Z
 - `signed_mean`, direction (positive = pushes toward LumB; negative = pushes toward LumA for the final logit; for the pole scores, positive = pushes toward 'this is the pole's class').
 - A pathway with high `mean |IG|` but `signed_mean ≈ 0` means the pathway has both pro- and anti- genes that roughly cancel, the pathway is important but ambiguous in direction.
 
-## Scope
+## Limitations
 
 - Only 5 Hallmark sets are loaded (the ones already in `priors.py` for the pole masks). The full 50-set MSigDB Hallmark catalog is out of scope for v0.5, keeping the dependency surface tight. Future work: add a `gmt`-file loader and roll up the full Hallmark catalog (or even C2 curated pathways).
 - Aggregation is over the RNA modality only. METABRIC's methylation branch is silenced; even on TCGA the methylation pathway aggregation isn't meaningful because the meth features are HM450 probes, not gene symbols.

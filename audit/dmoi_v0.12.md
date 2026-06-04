@@ -109,7 +109,7 @@ The four-axis closure (calibration / cross-cohort / cross-task /
 cross-cohort + cross-task) is now split-invariant on every axis
 that admits a CV check.
 
-## Scope
+## Limitations
 
 - Same architecture, same priors, same hyperparameters as v0.6.
 - pick_best_epoch=True is the standard CV protocol.

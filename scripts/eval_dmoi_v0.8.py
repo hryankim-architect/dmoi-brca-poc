@@ -382,7 +382,7 @@ def main() -> int:
         "- Agreement count is informational, not a hypothesis test.\n"
         f"- The per-pole projection adds n_poles * n_pathways * proj_dim = "
         f"{2 * n_pathways * PATHWAY_PROJ_DIM} parameters over v0.7.1.\n\n"
-        "## Scope\n\n"
+        "## Limitations\n\n"
         "- Single-fold final-model run (no CV). The v0.8 Variant C "
         "architecture diff is what's under test.\n"
         f"- proj_dim={PATHWAY_PROJ_DIM} is a chosen hyperparameter; not swept.\n"

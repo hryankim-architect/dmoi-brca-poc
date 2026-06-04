@@ -124,7 +124,7 @@ hand-picked pole priors + post-hoc Hallmark IG rollup, is
 binary subtype classification within the DMOI scope**, validated
 across cohorts, tasks, and classifier variants.
 
-## Scope
+## Limitations
 
 - Same architecture as v0.9 / v0.6 (no model changes); only the
   external scoring cohort changes.

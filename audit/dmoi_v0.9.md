@@ -133,7 +133,7 @@ this class of multi-omics classification problems, and v0.7+v0.8's
 "don't add a trainable pathway branch" is consistent with v0.9's
 "do swap pole priors instead."
 
-## Scope
+## Limitations
 
 - Same architecture as v0.6 (no model changes); only cohort, pole
   priors, and class-positive label assignment change. Cross-task

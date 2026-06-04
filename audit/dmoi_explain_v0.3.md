@@ -86,7 +86,7 @@ Full top-50 lists in [`dmoi_explain_global.tsv`](dmoi_explain_global.tsv).
 
 See [`dmoi_explain_per_patient.tsv`](dmoi_explain_per_patient.tsv) for the per-patient top-10 contributors across all three targets and both modalities. Format: `sample_id, y_true, target, modality, rank, feature, attribution, input_value, target_score`.
 
-## Scope
+## Limitations
 
 - Attribution is on the TCGA cohort_v2 test split only (n=84). METABRIC attribution is deferred to v0.4, the IG computation cost is modest (~7 min on MPS for 1,175 patients × 3 targets), but the v0.3 scope is to validate that DMOI's pole-conditioned predictions are interpretable on the same patients we benchmark on.
 - IG attribution is over standardized inputs (post-`StandardScaler`). Pathway-level aggregation (e.g., MSigDB) is out of scope for v0.3.

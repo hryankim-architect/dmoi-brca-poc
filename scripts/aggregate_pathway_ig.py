@@ -16,7 +16,7 @@ Pipeline:
      `dmoi_brca.pathway.pathway_aggregate` using priors.HALLMARK_SETS.
   6. Write audit/dmoi_pathway_v0.5.md with cross-cohort comparison.
 
-Scope: only the 5 Hallmark sets in priors.py are aggregated
+Limitations: only the 5 Hallmark sets in priors.py are aggregated
 (ESTROGEN_RESPONSE_EARLY + LATE; E2F_TARGETS; G2M_CHECKPOINT;
 MYC_TARGETS_V1). The full 50-set MSigDB Hallmark catalog is out of
 scope for v0.5 — keeping the dependency surface tight.
@@ -307,7 +307,7 @@ def main() -> int:
         "- A pathway with high `mean |IG|` but `signed_mean ≈ 0` means the "
         "pathway has both pro- and anti- genes that roughly cancel — the "
         "pathway is important but ambiguous in direction.\n\n"
-        "## Scope\n\n"
+        "## Limitations\n\n"
         "- Only 5 Hallmark sets are loaded (the ones already in "
         "`priors.py` for the pole masks). The full 50-set MSigDB Hallmark "
         "catalog is out of scope for v0.5 — keeping the dependency "

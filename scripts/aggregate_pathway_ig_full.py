@@ -20,7 +20,7 @@ Pipeline:
   7. Write `audit/dmoi_pathway_v0.6.md` with top-10 tables, full
      50-row CSV per (target, cohort), and a v0.5-survives section.
 
-Scope: aggregation is still RNA-only (METABRIC has no
+Limitations: aggregation is still RNA-only (METABRIC has no
 methylation; even on TCGA the meth features are HM450 probes, not
 gene symbols).
 """
@@ -390,7 +390,7 @@ def main() -> int:
         "scores, positive = pushes toward 'this is the pole's class').\n"
         "- A pathway with high `mean |IG|` but `signed_mean ≈ 0` means "
         "the pathway has both pro- and anti- genes that roughly cancel.\n\n"
-        "## Scope\n\n"
+        "## Limitations\n\n"
         "- 50 Hallmark sets loaded — the entire Hallmark v2024.1.Hs "
         "catalog. v0.6 closes the v0.5 caveat ('did you only load the "
         "5 sets that work?'). The C2 curated catalog (~5,000 sets) "

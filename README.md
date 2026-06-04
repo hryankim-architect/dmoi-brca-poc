@@ -559,7 +559,7 @@ placeholder (its score is ~75× smaller than the dominant ER pathways),
 present in the top-3 only because there are only five pathways in the
 aggregation.
 
-### Scope (v0.5)
+### Limitations (v0.5)
 
 Only the 5 Hallmark sets in `priors.py` are aggregated. The full
 50-set MSigDB Hallmark catalog would let a wider unsupervised
@@ -623,7 +623,7 @@ re-trains a fresh model), but the **structure**, lumA pole stacks ER
 at the top, lumB pole stacks cell-cycle at the top, is stable across
 v0.5 (5-set) and v0.6 (50-set) on both cohorts.
 
-### Scope (v0.6)
+### Limitations (v0.6)
 
 - 50 Hallmark sets loaded, the full v2024.1.Hs catalog. The C2 curated
   catalog (~5,000 sets) and other MSigDB collections remain out of

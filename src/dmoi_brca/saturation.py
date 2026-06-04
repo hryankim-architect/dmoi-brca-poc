@@ -93,7 +93,7 @@ class SaturationReport:
                 "comparison anchor.\n"
             )
         return (
-            "## Scope\n\n"
+            "## Limitations\n\n"
             f"Baseline {self.metric_name} values range "
             f"{self.min_value:.4f} - {self.max_value:.4f} "
             f"(mean={self.mean_value:.4f}, n={self.n_values}).\n"

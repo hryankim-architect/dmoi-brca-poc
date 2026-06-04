@@ -71,7 +71,7 @@ Both then evaluated on the 85% eval slice:
 
 Interpretation: the sensitivity asymmetry has two plausible drivers, (1) class-prior shift (METABRIC has ~40% LumB vs TCGA train's ~31%), and (2) modality silencing (the meth branch normally contributes signal toward the harder LumB calls).
 
-## Caveats
+## Limitations
 
 - **Methylation branch is silenced.** METABRIC has no HM450 data (it's an Illumina HT-12 v3 expression-only cohort). The methylation pole encoder receives a zero-tensor at inference, so this test does NOT validate the dual-modality story. It validates only that the RNA pole encoder + classifier head generalizes across cohorts.
 - **Platform difference.** TCGA uses HiSeq RNA-seq (FPKM log2 scale); METABRIC uses Illumina HT-12 v3 expression microarray. Quantile normalization is applied per gene, which is the standard correction for cross-platform validation.

@@ -113,7 +113,7 @@ Full per-pathway tables (one CSV per (target, cohort) combination, ranked by `me
 - `signed_mean`, direction (positive = pushes toward LumB; negative = pushes toward LumA for the final logit; for the pole scores, positive = pushes toward 'this is the pole's class').
 - A pathway with high `mean |IG|` but `signed_mean ≈ 0` means the pathway has both pro- and anti- genes that roughly cancel.
 
-## Scope
+## Limitations
 
 - 50 Hallmark sets loaded, the entire Hallmark v2024.1.Hs catalog. v0.6 closes the v0.5 caveat ('did you only load the 5 sets that work?'). The C2 curated catalog (~5,000 sets) remains out of scope.
 - Aggregation is over the RNA modality only. METABRIC's methylation branch is silenced; even on TCGA the meth features are HM450 probes, not gene symbols, so a Hallmark rollup of meth IG would need a probe -> gene crosswalk.

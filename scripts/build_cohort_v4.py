@@ -18,7 +18,7 @@ where group ∈ {"HER2", "Luminal"}, has_* mark modality presence, and split ∈
 {"train", "test"} is a stratified 80/20 on dual-modality samples
 (random_state=2024, the cohort_v2/v3 protocol). Single-modality rows: split="".
 
-Scope: HER2+ is the small class (~58 dual-modality). v0.14 is a
+Limitations: HER2+ is the small class (~58 dual-modality). v0.14 is a
 reusability demonstration, not a powered effect-size result — eval reports a
 5-fold band and leans on the METABRIC external (n≈224) for statistical weight.
 """

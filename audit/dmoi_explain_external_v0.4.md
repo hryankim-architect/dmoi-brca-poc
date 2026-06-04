@@ -122,7 +122,7 @@ The interpretability headline: do the same genes dominate when the trained model
 | 9 | `ATAD2` | `IFRD1` |
 | 10 | `IFRD1` | `DSCC1` |
 
-## Caveats
+## Limitations
 
 - **Methylation silenced.** METABRIC has no HM450 data, so the methylation branch receives a fixed zero (raw-domain) tensor, which after the train-fitted StandardScaler becomes a fixed `-mean/std` per probe. The lumA/lumB attribution focuses on the RNA branch only; the methylation attribution column is reported for completeness but is uninformative (all patients see the same meth input).
 - **Cross-cohort gene set differs slightly.** 16890 of TCGA's 20530 RNA genes are shared with METABRIC; the remainder are mean-imputed to zero in METABRIC. A gene that is informative on TCGA but absent from METABRIC cannot appear in METABRIC attributions.

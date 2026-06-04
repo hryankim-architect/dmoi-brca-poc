@@ -156,7 +156,7 @@ by the pole's attention.
 Backward-compatibility: `proj_dim=None` (default) keeps the v0.7.1
 scalar path so existing scripts and checkpoints continue to work.
 
-## Scope
+## Limitations
 
 - Single-fold final-model run (no CV). The v0.7 architecture diff is what's under test; held-out test scoring matches the v0.6 protocol.
 - The pathway branch sees a per-pole scalar feature (weighted-sum of the 50 pathway-mean expressions). A richer projection (per-pole vector instead of scalar) is the v0.8 Variant C upgrade.

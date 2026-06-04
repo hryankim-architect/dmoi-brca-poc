@@ -85,7 +85,7 @@ cross-cohort + cross-task result was not riding a single lucky
 split; v0.9's single-split AUROC = 1.000 generalises across every
 StratifiedKFold(random_state=42) partition tested.
 
-## Scope
+## Limitations
 
 - Same architecture and priors as v0.9. Only the train/val split changes across folds.
 - pick_best_epoch=True is the standard CV protocol; v0.9 used pick_best_epoch=False because val was a held-out test split.

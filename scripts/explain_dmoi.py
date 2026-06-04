@@ -23,7 +23,7 @@ Pipeline:
   9. Write audit/dmoi_explain_v0.3.md summary + completeness numbers +
      three example patient deep-dives.
 
-Scope: this is v0.3. Attribution is over the TCGA test set (n=84),
+Limitations: this is v0.3. Attribution is over the TCGA test set (n=84),
 the same fold the held-out test AUROC 0.968 is computed on. METABRIC
 attribution is deferred to v0.4.
 """
@@ -304,7 +304,7 @@ def main() -> int:
         "three targets and both modalities. Format: `sample_id, y_true, "
         "target, modality, rank, feature, attribution, input_value, "
         "target_score`.\n\n"
-        "## Scope\n\n"
+        "## Limitations\n\n"
         "- Attribution is on the TCGA cohort_v2 test split only (n=84). "
         "METABRIC attribution is deferred to v0.4 — the IG computation cost "
         "is modest (~7 min on MPS for 1,175 patients × 3 targets), but the "

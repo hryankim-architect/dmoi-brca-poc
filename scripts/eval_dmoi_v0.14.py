@@ -10,7 +10,7 @@ Structure mirrors eval_metabric_v0.10.py: train once on TCGA cohort_v4 train,
 report TCGA held-out test AUROC, then score the METABRIC external cohort
 (RNA-only, meth silenced) and roll up per-pole IG to the 50-set Hallmark catalog.
 
-Scope:
+Limitations:
   - HER2+ is the small TCGA class (~58 dual-modality). The single-split TCGA
     number is noisy; the METABRIC external (Her2 n≈224) carries the statistical
     weight. A 5-fold CV variant is the natural follow-up.
@@ -297,7 +297,7 @@ def main() -> int:
         f"{', '.join(f'`{p}`' for p in lum_match) or '(none)'}\n"
         f"- HER2 pole top-5 ∩ expected = {len(her2_match)} / 3 : "
         f"{', '.join(f'`{p}`' for p in her2_match) or '(none)'}\n\n"
-        "## Scope\n\n"
+        "## Limitations\n\n"
         f"- HER2+ is the small TCGA class (train HER2={int(feats.y.sum())}, "
         f"test HER2={int(feats_test.y.sum())}). The single-split TCGA AUROC is "
         "noisy; the METABRIC external (HER2 n="

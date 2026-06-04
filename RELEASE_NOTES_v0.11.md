@@ -80,7 +80,7 @@ python scripts/eval_dmoi_v0.11_cv.py
 Runs in ~3 minutes on an M-series Mac after the cohort_v3 features
 are cached.
 
-## Scope
+## Limitations
 
 - Same architecture, same priors, same data as v0.9 / v0.10. Only
   the train/val split varies across folds.

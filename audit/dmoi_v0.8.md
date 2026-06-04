@@ -136,7 +136,7 @@ test whether the pole masks could be replaced with learnable softmax
 attention; all 3 variants confirmed gene-level commitment is the
 right architectural level and the pathway view is properly post-hoc.**"
 
-## Scope
+## Limitations
 
 - Single-fold final-model run (no CV). The v0.8 Variant C architecture diff is what's under test.
 - proj_dim=16 is a chosen hyperparameter; not swept (proj_dim=4 / 8 / 32 / 64 may shift the picture marginally, but the v0.7.1 vs v0.8 same-basin result is robust evidence that interface dimensionality is not the bottleneck).

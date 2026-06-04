@@ -29,7 +29,7 @@ internal AND cross-cohort variance bands on both task axes. The v0.6
 single-split numbers (TCGA test 0.968; METABRIC 0.909) get replaced
 with split-distributed bands on both metrics simultaneously.
 
-Scope:
+Limitations:
   - Same architecture, same priors, same hyperparameters as v0.6.
     Only the train/val split changes per fold.
   - Each fold's METABRIC score uses that fold's TCGA-train RNA
@@ -472,7 +472,7 @@ def main() -> int:
         "expected pathways AND top-3 Jaccard is high, the v0.5 / v0.6 / v0.10 "
         "cross-cohort biology (ER for LumA, cell-cycle for LumB) is also "
         "split-invariant.\n\n"
-        "## Scope\n\n"
+        "## Limitations\n\n"
         "- Same architecture, same priors, same hyperparameters as v0.6.\n"
         "- pick_best_epoch=True is the standard CV protocol.\n"
         "- Each fold has ~25 LumB patients in TCGA val. AUROC variance on "
