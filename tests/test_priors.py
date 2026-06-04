@@ -1,16 +1,21 @@
 """Unit tests for dmoi_brca.priors (Day-5B Hallmark gene set priors)."""
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
+from dmoi_brca.hallmark import load_hallmark_gmt
 from dmoi_brca.priors import (
     HALLMARK_E2F_TARGETS,
     HALLMARK_ESTROGEN_RESPONSE_EARLY,
     HALLMARK_G2M_CHECKPOINT,
     HALLMARK_MYC_TARGETS_V1,
     HALLMARK_SETS,
+    POLE_HER2,
     POLE_LUMA,
     POLE_LUMB,
+    POLE_LUMINAL_ER,
     project_pole,
     project_to_features,
 )
@@ -107,3 +112,51 @@ def test_project_pole_returns_dict():
     assert "ESR1" in proj_luma["HALLMARK_ESTROGEN_RESPONSE_EARLY"].matched_genes
     assert "MKI67" in proj_lumb["HALLMARK_E2F_TARGETS"].matched_genes
     assert "AURKA" in proj_lumb["HALLMARK_G2M_CHECKPOINT"].matched_genes
+
+
+# --------------------------------------------------------------------------- #
+# v0.14 HER2-vs-Luminal poles
+# --------------------------------------------------------------------------- #
+_HALLMARK_GMT = Path(__file__).resolve().parents[1] / "data" / "msigdb" / "h.all.v2024.1.Hs.symbols.gmt"
+
+
+def test_her2_luminal_pole_definitions():
+    # HER2 pole = ERBB2 -> PI3K/AKT/mTOR axis + the proliferation signal HER2+
+    # tumors carry; Luminal-ER pole reuses the established estrogen-response axis.
+    assert "HALLMARK_PI3K_AKT_MTOR_SIGNALING" in POLE_HER2
+    assert "HALLMARK_MTORC1_SIGNALING" in POLE_HER2
+    assert "HALLMARK_G2M_CHECKPOINT" in POLE_HER2
+    assert "HALLMARK_ESTROGEN_RESPONSE_EARLY" in POLE_LUMINAL_ER
+    assert "HALLMARK_ESTROGEN_RESPONSE_LATE" in POLE_LUMINAL_ER
+    # Both poles well-formed: non-empty, unique, HALLMARK_-prefixed.
+    for pole in (POLE_HER2, POLE_LUMINAL_ER):
+        assert len(pole) >= 2
+        assert len(pole) == len(set(pole))
+        assert all(name.startswith("HALLMARK_") for name in pole)
+    # HER2 vs Luminal-ER must be disjoint by name (the pole contrast is clean).
+    assert not (set(POLE_HER2) & set(POLE_LUMINAL_ER))
+
+
+def test_luminal_er_pole_reuses_curated_sets():
+    # The ER axis lives in the curated 5-set catalog, so project_pole resolves
+    # POLE_LUMINAL_ER without the full GMT.
+    for name in POLE_LUMINAL_ER:
+        assert name in HALLMARK_SETS
+    proj = project_pole(POLE_LUMINAL_ER, ["ESR1", "PGR", "FOXA1", "GATA3"])
+    assert set(proj) == set(POLE_LUMINAL_ER)
+    assert "ESR1" in proj["HALLMARK_ESTROGEN_RESPONSE_EARLY"].matched_genes
+
+
+def test_her2_and_luminal_poles_resolve_in_full_catalog():
+    # POLE_HER2 references full-catalog sets (PI3K/MTOR) NOT in the curated 5;
+    # they must resolve against the committed 50-set Hallmark GMT.
+    if not _HALLMARK_GMT.is_file():
+        pytest.skip(f"Hallmark GMT not present at {_HALLMARK_GMT}")
+    catalog = load_hallmark_gmt(_HALLMARK_GMT)
+    for name in (*POLE_HER2, *POLE_LUMINAL_ER):
+        assert name in catalog, f"{name} missing from Hallmark catalog"
+        assert len(catalog[name]) >= 100, f"{name} has only {len(catalog[name])} genes"
+    # NB: we deliberately do not assert specific gene membership here — MSigDB
+    # Hallmark sets are curated by expression response, not pathway intuition
+    # (e.g. ESR1 and ERBB2 are not in the ER / PI3K-MTOR sets). Name resolution
+    # and set size are the robust, assumption-free invariants.
