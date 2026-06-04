@@ -94,3 +94,52 @@ def test_calibrate_fold_returns_proba_in_range():
     assert calibrated.shape == (n,)
     assert ((calibrated >= 0.0) & (calibrated <= 1.0)).all()
     assert fit.temperature > 0
+
+
+def test_fit_temperature_underconfident_finds_T_lt_one():
+    """Under-confident logits (too-small scale) should fit T < 1 (sharpen) --
+    the regime DMOI actually falls into."""
+    rng = np.random.default_rng(0)
+    n = 500
+    true_logits = rng.normal(0, 2, n).astype(np.float32)
+    proba = 1.0 / (1.0 + np.exp(-true_logits))
+    labels = (rng.random(n) < proba).astype(np.int64)
+    underconfident = (true_logits * 0.4).astype(np.float32)
+    fit = fit_temperature(underconfident, labels)
+    assert fit.temperature < 1.0
+
+
+def test_fit_temperature_clamps_degenerate_input_to_range():
+    """A near-separable / extreme input must not return T -> 0 or non-finite;
+    it is clamped into [T_MIN, T_MAX]."""
+    from dmoi_brca.calibration import T_MAX, T_MIN
+
+    rng = np.random.default_rng(1)
+    n = 400
+    logits = rng.normal(0, 1, n).astype(np.float32)
+    labels = (logits > 0).astype(np.int64)        # perfectly separable by sign
+    extreme = (logits * 0.2).astype(np.float32)   # very under-confident
+    fit = fit_temperature(extreme, labels)
+    assert np.isfinite(fit.temperature)
+    assert T_MIN <= fit.temperature <= T_MAX
+    # the clamped fit must still produce valid, finite probabilities
+    proba = apply_temperature(extreme, fit.temperature)
+    assert np.all(np.isfinite(proba)) and ((proba >= 0) & (proba <= 1)).all()
+
+
+def test_apply_temperature_no_overflow_on_extreme_inputs():
+    """Stable sigmoid: enormous |scaled| stays in [0,1], no overflow/NaN."""
+    logits = np.array([-1e6, -50.0, 0.0, 50.0, 1e6], dtype=np.float64)
+    proba = apply_temperature(logits, temperature=1e-3)  # -> enormous |scaled|
+    assert np.all(np.isfinite(proba))
+    assert np.all((proba >= 0.0) & (proba <= 1.0))
+    assert proba[0] == 0.0 and proba[-1] == 1.0  # saturates cleanly
+
+
+def test_apply_temperature_matches_naive_on_safe_range():
+    """On a non-extreme range the stable sigmoid matches the naive formula."""
+    logits = np.linspace(-10.0, 10.0, 21)
+    assert np.allclose(
+        apply_temperature(logits, 2.0),
+        1.0 / (1.0 + np.exp(-logits / 2.0)),
+    )

@@ -33,6 +33,24 @@ import numpy as np
 import torch
 from torch import nn
 
+# Temperature is clamped to this range after fitting so a degenerate optimizer
+# step (e.g. on a near-separable / extreme input) cannot return T -> 0 or a
+# non-finite value and then blow up apply_temperature downstream. The bounds
+# are wide enough never to bind on real DMOI logits (observed T ~ 0.4 - 1.0).
+T_MIN = 0.05
+T_MAX = 100.0
+
+
+def _sigmoid(x: np.ndarray) -> np.ndarray:
+    """Numerically stable logistic sigmoid (no exp overflow for large |x|).
+
+    Uses exp(-|x|) (argument always <= 0, so it never overflows) and the
+    algebraically equivalent branch per sign of x.
+    """
+    x = np.asarray(x, dtype=np.float64)
+    z = np.exp(-np.abs(x))
+    return np.where(x >= 0, 1.0 / (1.0 + z), z / (1.0 + z))
+
 
 @dataclass(frozen=True)
 class CalibrationFit:
@@ -101,8 +119,15 @@ def fit_temperature(
         return loss
 
     optimizer.step(closure)
-    T_final = float(log_T.exp().item())
-    nll_after = last_loss[0]
+    T_raw = float(log_T.exp().item())
+    # Guard a degenerate fit: non-finite, or T collapsing toward 0 on a
+    # near-separable input. Clamp to [T_MIN, T_MAX] and recompute the NLL so
+    # the reported value matches the temperature actually returned.
+    if not np.isfinite(T_raw):
+        T_raw = 1.0
+    T_final = float(np.clip(T_raw, T_MIN, T_MAX))
+    with torch.no_grad():
+        nll_after = float(loss_fn(logits_t / T_final, labels_t).item())
 
     converged = abs(nll_before - nll_after) > tol  # at least some movement
     return CalibrationFit(
@@ -124,9 +149,8 @@ def apply_temperature(
     """
     if temperature <= 0:
         raise ValueError(f"temperature must be > 0, got {temperature}")
-    scaled = logits / temperature
-    # Numerically stable sigmoid via numpy.
-    return 1.0 / (1.0 + np.exp(-scaled))
+    scaled = np.asarray(logits, dtype=np.float64) / temperature
+    return _sigmoid(scaled)
 
 
 def calibrate_fold(
