@@ -158,7 +158,7 @@ def _v05_survives_check(
         }
         survivors = expected & top3
         missing = expected - top3
-        survived = bool(survivors) and not missing
+        bool(survivors) and not missing
         if missing:
             all_survive = False
         out_lines.append(

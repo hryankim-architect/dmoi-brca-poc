@@ -37,7 +37,6 @@ UTC = timezone.utc  # noqa: UP017
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 import numpy as np  # noqa: E402
-import pandas as pd  # noqa: E402
 
 from dmoi_brca.attribution import integrated_gradients_dmoi  # noqa: E402
 from dmoi_brca.features import load_features  # noqa: E402
@@ -172,7 +171,7 @@ def main() -> int:
 
     # --- Aggregate AUROC + bacc ---
     agg = aggregate_fold_results(results)
-    print(f"\n--- 5-fold CV aggregate ---")
+    print("\n--- 5-fold CV aggregate ---")
     print(f"  AUROC : mean={agg['auc_mean']:.4f}  std={agg['auc_std']:.4f}")
     print(f"  bacc  : mean={agg['bacc_mean']:.4f} std={agg['bacc_std']:.4f}")
 
@@ -185,7 +184,6 @@ def main() -> int:
     per_fold_hits: list[tuple[int, int]] = []
     per_fold_top3_luminal: list[set] = []
     per_fold_top3_basal: list[set] = []
-    import torch  # noqa: E402
     for fi, (result, (_tr_idx, te_idx)) in enumerate(zip(results, fold_splits, strict=False), start=1):
         if result.model is None:
             sys.stderr.write(f"ERROR: fold {fi} returned no model.\n")

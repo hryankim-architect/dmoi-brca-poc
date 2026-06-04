@@ -45,6 +45,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 import torch  # noqa: E402
+from sklearn.metrics import roc_auc_score  # noqa: E402
 
 from dmoi_brca.external import (  # noqa: E402
     align_to_train_genes,
@@ -63,7 +64,6 @@ from dmoi_brca.pathway_attention import (  # noqa: E402
 )
 from dmoi_brca.priors import POLE_LUMA, POLE_LUMB  # noqa: E402
 from dmoi_brca.train import train_one_fold  # noqa: E402
-from sklearn.metrics import roc_auc_score  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[1]
 TCGA = REPO / "data" / "tcga_brca"
@@ -163,7 +163,7 @@ def main() -> int:
     # --- Hallmark catalog ---
     print(f"\n--- Loading Hallmark catalog: {HALLMARK_GMT.name} ---")
     hallmark: dict[str, list[str]] = load_hallmark_gmt(HALLMARK_GMT)
-    pathway_names = list(hallmark.keys())
+    list(hallmark.keys())
     n_pathways = len(hallmark)
     print(f"  {n_pathways} Hallmark sets loaded.")
 

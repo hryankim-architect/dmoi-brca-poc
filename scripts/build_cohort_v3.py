@@ -41,7 +41,6 @@ import gzip
 import sys
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
@@ -69,7 +68,7 @@ def main() -> int:
             sys.stderr.write(f"ERROR: missing input {p}\n")
             return 1
 
-    print(f"=== build_cohort_v3.py (Luminal-vs-Basal) ===")
+    print("=== build_cohort_v3.py (Luminal-vs-Basal) ===")
 
     print(f"--- reading {CLINICAL.name} ---")
     clinical = pd.read_csv(CLINICAL, sep="\t", low_memory=False)
@@ -113,7 +112,7 @@ def main() -> int:
     cl["has_rna"] = cl["sample_id"].isin(rna_samples)
     cl["has_meth"] = cl["sample_id"].isin(meth_samples)
     dual = cl[cl["has_rna"] & cl["has_meth"]].copy()
-    print(f"\n  dual-modality samples per group:")
+    print("\n  dual-modality samples per group:")
     for grp, count in dual["group"].value_counts().items():
         print(f"    {grp:10s} {count}")
 

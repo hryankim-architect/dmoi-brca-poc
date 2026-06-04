@@ -169,7 +169,6 @@ def main() -> int:
 
     # --- IG attribution + Hallmark rollup ---
     AUDIT.mkdir(exist_ok=True)
-    import torch  # noqa: E402
     device = next(result.model.parameters()).device
     # integrated_gradients_dmoi expects numpy arrays (it wraps them in
     # torch.from_numpy internally), so we keep the standardized matrices

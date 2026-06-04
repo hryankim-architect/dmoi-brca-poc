@@ -61,6 +61,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
+from sklearn.metrics import balanced_accuracy_score, roc_auc_score  # noqa: E402
 
 from dmoi_brca.attribution import integrated_gradients_dmoi  # noqa: E402
 from dmoi_brca.external import (  # noqa: E402
@@ -78,7 +79,6 @@ from dmoi_brca.hypothesis_attention import (  # noqa: E402
 from dmoi_brca.pathway import pathway_aggregate, rank_pathways  # noqa: E402
 from dmoi_brca.priors import POLE_BASAL, POLE_LUMINAL  # noqa: E402
 from dmoi_brca.train import train_one_fold  # noqa: E402
-from sklearn.metrics import balanced_accuracy_score, roc_auc_score  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[1]
 TCGA = REPO / "data" / "tcga_brca"

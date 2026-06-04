@@ -42,7 +42,6 @@ from sklearn.metrics import roc_auc_score  # noqa: E402
 from dmoi_brca import audit, tracking  # noqa: E402
 from dmoi_brca.calibration import apply_temperature, fit_temperature  # noqa: E402
 from dmoi_brca.eval import brier_score, compute_calibration, reliability_table  # noqa: E402
-from dmoi_brca.transfer import affine_align, prior_odds_correct  # noqa: E402
 from dmoi_brca.external import (  # noqa: E402
     align_to_train_genes,
     gene_overlap_stats,
@@ -56,6 +55,7 @@ from dmoi_brca.hypothesis_attention import (  # noqa: E402
 )
 from dmoi_brca.priors import POLE_LUMA, POLE_LUMB  # noqa: E402
 from dmoi_brca.train import train_one_fold  # noqa: E402
+from dmoi_brca.transfer import affine_align, prior_odds_correct  # noqa: E402
 
 TCGA = REPO / "data" / "tcga_brca"
 METABRIC = REPO / "data" / "metabric"
