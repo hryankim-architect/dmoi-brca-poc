@@ -41,6 +41,9 @@ The progression is one arc: a finding, then systematic testing, then a falsified
 evaluation in about 2 minutes on an M-series Mac.
 `python scripts/eval_external.py` adds the METABRIC external test
 in another ~3 minutes (after a one-time ~690 MB METABRIC download).
+`python scripts/calibrate_transfer.py` runs the v0.13 cross-cohort
+calibration-transfer analysis (TCGA → METABRIC) and writes the reliability
+table and verdict to `audit/`.
 
 **Substrate.** Emits NDJSON audit entries (each entry chained to the previous by hash), tracks MLflow runs, exposes a canary smoke test for `lab_semantic_check.py`.
 

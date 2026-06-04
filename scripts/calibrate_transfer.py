@@ -37,11 +37,12 @@ sys.path.insert(0, str(REPO / "scripts"))
 
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
-from sklearn.metrics import brier_score_loss, roc_auc_score  # noqa: E402
+from sklearn.metrics import roc_auc_score  # noqa: E402
 
 from dmoi_brca import audit, tracking  # noqa: E402
 from dmoi_brca.calibration import apply_temperature, fit_temperature  # noqa: E402
-from dmoi_brca.eval import compute_calibration  # noqa: E402
+from dmoi_brca.eval import brier_score, compute_calibration, reliability_table  # noqa: E402
+from dmoi_brca.transfer import affine_align, prior_odds_correct  # noqa: E402
 from dmoi_brca.external import (  # noqa: E402
     align_to_train_genes,
     gene_overlap_stats,
@@ -159,7 +160,7 @@ def _ece(labels, proba):
 
 
 def _brier(labels, proba):
-    return float(brier_score_loss(labels, proba))
+    return brier_score(labels, proba)
 
 
 def _stratified_pool(labels, frac, seed):
@@ -232,14 +233,13 @@ def main() -> int:
     rows.append(("C_METABRIC_oracle_T", fit_C.temperature, _ece(eval_labels, pC), _brier(eval_labels, pC)))
 
     # D2 — label-free affine logit alignment (METABRIC dist -> TCGA dist) + TCGA T
-    aligned = (eval_logits - metab_mean) / metab_std * tcga_std + tcga_mean
+    aligned = affine_align(eval_logits, src_mean=metab_mean, src_std=metab_std,
+                           dst_mean=tcga_mean, dst_std=tcga_std)
     pD2 = apply_temperature(aligned, T_tcga)
     rows.append(("D2_labelfree_align_TCGA_T", T_tcga, _ece(eval_labels, pD2), _brier(eval_labels, pD2)))
 
     # D3 — class-prior odds correction (priors only; no per-sample labels)
-    ratio_pos, ratio_neg = pi_metab / pi_train, (1.0 - pi_metab) / (1.0 - pi_train)
-    num = proba_raw[eval_idx] * ratio_pos
-    pD3 = num / np.maximum(num + (1.0 - proba_raw[eval_idx]) * ratio_neg, 1e-12)
+    pD3 = prior_odds_correct(proba_raw[eval_idx], pi_train=pi_train, pi_target=pi_metab)
     rows.append(("D3_prior_odds", float("nan"), _ece(eval_labels, pD3), _brier(eval_labels, pD3)))
 
     # D1 — METABRIC-mini learning curve (n sweep x seeds)
@@ -279,10 +279,8 @@ def main() -> int:
                        "C_METABRIC_oracle_T": pC, "D2_labelfree_align_TCGA_T": pD2,
                        "D3_prior_odds": pD3}
         for cond, pr in named_proba.items():
-            rep = compute_calibration(eval_labels, pr, n_bins=N_BINS)
-            for c, conf, acc, cnt in zip(rep.bin_centers, rep.bin_confidence,
-                                         rep.bin_accuracy, rep.bin_counts, strict=False):
-                fh.write(f"{cond}\t{c:.4f}\t{conf:.4f}\t{acc:.4f}\t{cnt}\n")
+            for b in reliability_table(eval_labels, pr, n_bins=N_BINS):
+                fh.write(f"{cond}\t{b.center:.4f}\t{b.confidence:.4f}\t{b.accuracy:.4f}\t{b.count}\n")
 
     lc_path = AUDIT / "dmoi_calibration_transfer_v0.13_learning_curve.tsv"
     with lc_path.open("w") as fh:

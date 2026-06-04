@@ -329,3 +329,56 @@ def confusion_matrix_table(labels: np.ndarray, pred: np.ndarray) -> dict[str, in
     cm = confusion_matrix(labels, pred, labels=[0, 1])
     tn, fp, fn, tp = int(cm[0, 0]), int(cm[0, 1]), int(cm[1, 0]), int(cm[1, 1])
     return {"tn": tn, "fp": fp, "fn": fn, "tp": tp}
+
+
+# ---------------------------------------------------------------------------
+# Calibration extras (v0.13): Brier score + reliability-table export
+# ---------------------------------------------------------------------------
+
+def brier_score(labels: np.ndarray, proba: np.ndarray) -> float:
+    """Brier score = mean squared error of probabilistic predictions.
+
+    For binary labels in {0, 1}, lower is better (0 is perfect). Reported
+    alongside ECE because ECE is bin-sensitive (a binned summary) while the
+    Brier score is a strictly proper scoring rule evaluated per sample. Equal
+    to ``sklearn.metrics.brier_score_loss`` for binary labels.
+    """
+    labels = np.asarray(labels, dtype=np.float64)
+    proba = np.asarray(proba, dtype=np.float64)
+    if proba.shape != labels.shape:
+        raise ValueError(f"proba shape {proba.shape} != labels shape {labels.shape}")
+    return float(np.mean((proba - labels) ** 2))
+
+
+@dataclass(frozen=True)
+class ReliabilityBin:
+    """One reliability-curve bin: x=confidence, y=accuracy, with its count."""
+
+    center: float       # bin midpoint on [0, 1]
+    confidence: float   # mean predicted probability in the bin
+    accuracy: float     # observed positive rate in the bin
+    count: int          # n samples in the bin
+
+
+def reliability_table(
+    labels: np.ndarray,
+    proba: np.ndarray,
+    n_bins: int = 10,
+) -> list[ReliabilityBin]:
+    """Per-bin reliability rows for curve / TSV export.
+
+    Thin wrapper over :func:`compute_calibration` so callers (e.g.
+    ``scripts/calibrate_transfer.py``) get ready-to-write rows with the exact
+    same binning ECE uses, instead of re-zipping the report tuples by hand.
+    """
+    rep = compute_calibration(labels, proba, n_bins=n_bins)
+    return [
+        ReliabilityBin(center=c, confidence=conf, accuracy=acc, count=cnt)
+        for c, conf, acc, cnt in zip(
+            rep.bin_centers,
+            rep.bin_confidence,
+            rep.bin_accuracy,
+            rep.bin_counts,
+            strict=False,
+        )
+    ]
