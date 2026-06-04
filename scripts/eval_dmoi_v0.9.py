@@ -25,7 +25,7 @@ Pipeline:
      up to the full 50-set Hallmark catalog (same protocol as v0.6).
   6. Write audit/dmoi_v0.9.md.
 
-Honest scope:
+Scope:
   - Same architecture as v0.6 (no model changes); only cohort + Hallmark pole
     priors change.
   - Class imbalance is 4.8:1 (Luminal majority) -- pos_weight handles it but
@@ -282,7 +282,7 @@ def main() -> int:
         f"{', '.join(f'`{p}`' for p in lum_match) or '(none)'}\n"
         f"- Basal pole top-5 ∩ expected = {len(bas_match)} / 5 : "
         f"{', '.join(f'`{p}`' for p in bas_match) or '(none)'}\n\n"
-        "## Honest scope\n\n"
+        "## Scope\n\n"
         "- Same architecture as v0.6 (no model changes); only cohort and "
         "pole priors change. Cross-task generalization is the only thing "
         "under test.\n"

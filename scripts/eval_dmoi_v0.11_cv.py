@@ -17,7 +17,7 @@ baseline CV protocol) and reporting:
     priors makes the per-fold pole top-5 (frequency / 5).
   - Cross-fold top-3 Jaccard for both poles.
 
-Honest scope:
+Scope:
   - Same v0.6 architecture, same v0.9 priors, same hyperparameters.
     Only the train/val split changes per fold.
   - cohort_v3 = 502 patients (Luminal 415, Basal 87). With 5 folds
@@ -340,7 +340,7 @@ def main() -> int:
         "fixed -- consistent with the cohort_v3 LogReg baseline being "
         "near-saturated and the gene-level architecture commitment "
         "carrying that signal cleanly.\n\n"
-        "## Honest scope\n\n"
+        "## Scope\n\n"
         "- Same architecture and priors as v0.9. Only the train/val "
         "split changes across folds.\n"
         "- pick_best_epoch=True is the standard CV protocol; v0.9 used "

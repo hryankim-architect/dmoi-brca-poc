@@ -39,7 +39,7 @@ Pipeline:
   7. Write audit/dmoi_v0.10.md with cross-cohort + cross-task closure
      analysis.
 
-Honest scope:
+Scope:
   - METABRIC has no HM450 methylation -- the meth branch is silenced.
   - METABRIC microarray RNA is quantile-normalized to TCGA train RNA
     column-by-column (per the v0.2 / v0.4 / v0.6 protocol). This is the
@@ -360,7 +360,7 @@ def main() -> int:
         f"{', '.join(f'`{p}`' for p in lum_match) or '(none)'}\n"
         f"- Basal pole top-5 ∩ expected = {len(bas_match)} / 5 : "
         f"{', '.join(f'`{p}`' for p in bas_match) or '(none)'}\n\n"
-        "## Honest scope\n\n"
+        "## Scope\n\n"
         "- Same architecture as v0.9 / v0.6 (no model changes); only the\n"
         "  external scoring cohort changes.\n"
         "- METABRIC microarray RNA is on a different platform (Illumina HT-12 v3)\n"

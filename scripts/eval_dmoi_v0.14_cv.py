@@ -13,7 +13,7 @@ Reports, mirroring v0.11:
   - Cross-fold pathway frequency (how often each prior makes per-fold top-5).
   - Cross-fold top-3 Jaccard for both poles.
 
-Honest scope:
+Scope:
   - Same v0.6 architecture, same v0.14 priors, same hyperparameters; only the
     train/val split changes per fold.
   - cohort_v4 = 436 dual-modality patients (Luminal 378, HER2 58). With 5 folds
@@ -274,7 +274,7 @@ def main() -> int:
         "## Cross-fold top-3 stability (pairwise mean Jaccard)\n\n"
         f"- Luminal pole top-3 mean pairwise Jaccard : **{lum_j:.4f}**\n"
         f"- HER2    pole top-3 mean pairwise Jaccard : **{her2_j:.4f}**\n\n"
-        "## Honest scope\n\n"
+        "## Scope\n\n"
         "- Same architecture and priors as v0.14 single-split. Only the "
         "train/val split changes across folds.\n"
         "- HER2 is the small class (~12 per val fold); the AUROC band is wider "

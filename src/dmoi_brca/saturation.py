@@ -56,7 +56,7 @@ class SaturationReport:
         - If is_saturated: the "Saturation finding (honest)" section that
           forces an honest re-scope conversation.
         - If is_near_saturated but not fully saturated: a milder warning.
-        - Otherwise: the default "Honest scope" framing.
+        - Otherwise: the default "Scope" framing.
         """
         if self.is_saturated:
             causes = (
@@ -93,7 +93,7 @@ class SaturationReport:
                 "comparison anchor.\n"
             )
         return (
-            "## Honest scope\n\n"
+            "## Scope\n\n"
             f"Baseline {self.metric_name} values range "
             f"{self.min_value:.4f} - {self.max_value:.4f} "
             f"(mean={self.mean_value:.4f}, n={self.n_values}).\n"

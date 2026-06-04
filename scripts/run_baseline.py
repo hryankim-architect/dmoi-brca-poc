@@ -112,7 +112,7 @@ def main() -> int:
         )
     else:
         honest_scope = (
-            "## Honest scope\n\n"
+            "## Scope\n\n"
             "These are simple sklearn baselines on the dual-modality cohort, not the\n"
             "upstream MGDMCL contrastive framework. The point is to record a non-trivial\n"
             "comparison anchor before the Week-2 DMOI hypothesis-conditioned encoder\n"

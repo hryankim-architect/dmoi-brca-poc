@@ -22,7 +22,7 @@ Pipeline:
   8. Audit MD: audit/dmoi_explain_external_v0.4.md with the same shape
      as dmoi_explain_v0.3.md plus a cross-cohort comparison section.
 
-Honest scope: METABRIC has no HM450. Methylation branch is silenced at
+Scope: METABRIC has no HM450. Methylation branch is silenced at
 inference (the dual-modality story is NOT validated cross-cohort; only
 the RNA pole encoder's per-patient explanations are).
 """

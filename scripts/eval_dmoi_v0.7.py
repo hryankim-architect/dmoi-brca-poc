@@ -362,7 +362,7 @@ def main() -> int:
         "- Agreement count is informational, not a hypothesis test. With 50 "
         "pathways the chance of a random 3-set match is (50 choose 3 with k "
         "hits) -- not zero but small.\n\n"
-        "## Honest scope\n\n"
+        "## Scope\n\n"
         "- Single-fold final-model run (no CV). The v0.7 architecture diff is "
         "what's under test; held-out test scoring matches the v0.6 protocol.\n"
         "- The pathway branch sees a per-pole scalar feature (weighted-sum of "

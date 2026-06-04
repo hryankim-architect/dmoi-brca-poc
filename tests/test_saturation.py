@@ -57,7 +57,7 @@ def test_audit_section_normal_emits_default_scope():
     auc = [0.7, 0.8, 0.75]
     report = check_saturation(auc)
     md = report.audit_section()
-    assert "Honest scope" in md
+    assert "Scope" in md
     assert "Saturation" not in md
 
 
