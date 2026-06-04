@@ -2,6 +2,10 @@
 
 ![ci](https://github.com/hryankim-architect/dmoi-brca-poc/actions/workflows/ci.yml/badge.svg)
 
+> **One principle, applied here.** Pick the smallest, most interpretable representation that could carry the signal; measure it against an honest baseline; report the verdict faithfully — whether the compact choice wins, ties, or loses. *That last step is why AI safety is needed: knowing a capability is real rather than a flattering benchmark.*
+>
+> In this repo: **representation** pole-feature views + a 1-scalar disagreement signal, with *parameter-free* attention masks → **baseline** a *trainable* pathway-attention variant → **verdict** the fancy version was *falsified*: the parameter-free design held across cohort, task, and split (richer interface didn't help).
+
 This repo uses TCGA-BRCA RNA-seq + HM450 methylation data, intentionally subsetted to keep evaluation fast and outputs fully reproducible. METABRIC (RNA-only, n=1,175–1,399) serves as the external validation cohort throughout.
 
 **What this shows.** A hypothesis-conditioned multi-omics architecture
@@ -16,8 +20,9 @@ cohort-specific calibration analysis.
 
 ## TL;DR: four axes of reusability, all split-invariant
 
-The v0.6 → v0.12-A sequence tests one architectural commitment across four
-orthogonal axes and an adversarial alternative architecture. Every axis holds,
+The v0.6 → v0.14 sequence tests one architectural commitment across multiple
+orthogonal axes and an adversarial alternative architecture — including a third
+task axis (HER2-vs-Luminal) added in v0.14. Every axis holds,
 and the two task axes are sealed as split-invariant under 5-fold CV.
 
 | Axis of reusability | Headline result | Version |
@@ -938,7 +943,7 @@ python scripts/aggregate_pathway_ig_full.py  # ~7 min on MPS
 # 11. (v0.7.1) Learnable pathway-pole attention (scalar pole feature, Phase B).
 python scripts/eval_dmoi_v0.7.py             # ~7 min on MPS
                                               # writes audit/dmoi_v0.7.md
-                                              # Two-phase documented documented negative
+                                              # Two-phase documented negative
 
 # 12. (v0.8) Variant C, vector pole feature (proj_dim=16, 17x more params).
 python scripts/eval_dmoi_v0.8.py             # ~7 min on MPS
