@@ -4,7 +4,7 @@
 
 > **One principle, applied here.** Pick the smallest, most interpretable representation that could carry the signal; measure it against an honest baseline; report the verdict faithfully — whether the compact choice wins, ties, or loses. *That last step is why AI safety is needed: knowing a capability is real rather than a flattering benchmark.*
 >
-> In this repo: **representation** pole-feature views + a 1-scalar disagreement signal, with *parameter-free* attention masks → **baseline** a *trainable* pathway-attention variant → **verdict** the fancy version was *falsified*: the parameter-free design held across cohort, task, and split (richer interface didn't help).
+> In this repo: **representation** pole-feature views + a 1-scalar disagreement signal, with *parameter-free* attention masks → **baseline** a *trainable* pathway-attention variant → **verdict** the trainable variant was *refuted*: the parameter-free design held across cohort, task, and split (richer interface didn't help).
 
 This repo uses TCGA-BRCA RNA-seq + HM450 methylation data, intentionally subsetted to keep evaluation fast and outputs fully reproducible. METABRIC (RNA-only, n=1,175–1,399) serves as the external validation cohort throughout.
 
