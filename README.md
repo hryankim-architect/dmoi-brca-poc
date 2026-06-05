@@ -53,7 +53,7 @@ table and verdict to `audit/`.
 
 ## v0.12-A headline result (cross-cohort split-invariance seal on v0.4 / v0.6)
 
-| Metric | DMOI v0.8 |
+| Metric | Finding / Result |
 |---|---|
 | 5-fold CV AUROC (TCGA train split, n=333) | 0.954 ± 0.017 |
 | **v0.6 reference: TCGA held-out test AUROC** | **0.968** |
@@ -970,8 +970,8 @@ python scripts/eval_metabric_v0.10.py         # ~10 min on MPS
                                               # framework reusability across BOTH axes
 ```
 
-Pinned to Python 3.11+, `numpy 2.2`, `scikit-learn 1.7`, `torch 2.x`,
-`captum 0.7+` (MPS-supported on Apple Silicon).
+Requires Python 3.11+; lower-bound pins: `numpy>=1.26`, `scikit-learn>=1.4`, `torch>=2.3`,
+`captum>=0.7` (MPS-supported on Apple Silicon). Run `uv sync` to install the resolved versions.
 
 ---
 
@@ -1016,12 +1016,19 @@ scripts/
 ├── build_cohort_v3.py             # v0.9: TCGA Luminal-vs-Basal cohort builder
 ├── eval_dmoi_v0.9.py              # v0.9: cross-task generalization driver (TCGA)
 ├── build_metabric_cohort_v3.py    # v0.10: METABRIC Luminal-vs-Basal cohort builder
-└── eval_metabric_v0.10.py         # v0.10: cross-cohort + cross-task generalization driver
+├── eval_metabric_v0.10.py         # v0.10: cross-cohort + cross-task generalization driver
+├── eval_dmoi_v0.11_cv.py          # v0.11: 5-fold CV stability seal (Luminal-vs-Basal)
+├── eval_dmoi_v0.12_cv.py          # v0.12-A: cross-cohort split-invariance seal (LumA-vs-LumB)
+├── calibrate_transfer.py          # v0.13: cross-cohort calibration transfer analysis
+├── build_cohort_v4.py             # v0.14: TCGA HER2-vs-Luminal cohort builder
+├── build_metabric_cohort_v4.py    # v0.14: METABRIC HER2-vs-Luminal cohort builder
+├── eval_dmoi_v0.14.py             # v0.14: HER2-vs-Luminal single-split driver
+└── eval_dmoi_v0.14_cv.py          # v0.14: HER2-vs-Luminal 5-fold CV driver
 ```
 
 ---
 
-## What's out of scope for v0.10
+## What's out of scope for v0.14
 
 See [`docs/what-is-out-of-scope.md`](docs/what-is-out-of-scope.md) for the
 full list. Key items still deliberately deferred after v0.8:

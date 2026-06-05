@@ -1,6 +1,6 @@
 # dmoi-brca-poc -- proof-of-concept BRCA molecular oncology pipeline
 # Targets are deliberately small. Every repo using this scaffold should be
-# reproducible end-to-end with `make data && make run && make test && make report`.
+# reproducible end-to-end with `make data && make run && make test`.
 
 PYTHON ?= .venv/bin/python
 UV ?= uv
@@ -17,7 +17,7 @@ help:
 	@echo "make data         Download + checksum-verify public inputs from data/manifest.yaml"
 	@echo "make run          Run the end-to-end pipeline (audit + MLflow hooks engaged)"
 	@echo "make test         Run pytest"
-	@echo "make report       Render demo notebook to HTML at reports/demo.html"
+	@echo "make report       (stub) notebooks/demo.ipynb not present in this repo"
 	@echo "make lint         ruff check"
 	@echo "make canary       Run the deterministic canary smoke test"
 	@echo "make ci           ruff + pytest + canary"
