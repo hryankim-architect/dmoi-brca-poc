@@ -50,3 +50,6 @@ Thumbs.db
 
 # DMOI POC — upstream reference repos (re-clone yourself: see scripts/setup_reference.sh)
 reference/
+
+# pytest cache artifacts (suffixed cache dirs created by some runners)
+pytest-cache-files-*/
