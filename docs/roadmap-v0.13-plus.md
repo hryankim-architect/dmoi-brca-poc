@@ -200,7 +200,7 @@ Each promoted item is not "done" until all of the following hold:
 1. Reproducible entry point (`python scripts/...`) runs on a workstation in
    minutes and is documented in `scripts/README.md`.
 2. NDJSON audit entries emitted (each chained by hash to the previous); MLflow run tracked; canary smoke test green.
-3. Tests added; `ci.yml` and `english-only` CI both pass.
+3. Tests added; `ci.yml` passes.
 4. README updated (the relevant results table + reproducibility note).
 5. `docs/what-is-out-of-scope.md` edited in the *same change* — the item is
    removed from the out-of-scope list with a one-line "now in scope as of vX"

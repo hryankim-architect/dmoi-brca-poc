@@ -1016,8 +1016,7 @@ scripts/
 ├── build_cohort_v3.py             # v0.9: TCGA Luminal-vs-Basal cohort builder
 ├── eval_dmoi_v0.9.py              # v0.9: cross-task generalization driver (TCGA)
 ├── build_metabric_cohort_v3.py    # v0.10: METABRIC Luminal-vs-Basal cohort builder
-├── eval_metabric_v0.10.py         # v0.10: cross-cohort + cross-task generalization driver
-└── check_english_only.py     # CJK gate run by the pre-commit hook
+└── eval_metabric_v0.10.py         # v0.10: cross-cohort + cross-task generalization driver
 ```
 
 ---
