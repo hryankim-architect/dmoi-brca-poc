@@ -30,6 +30,9 @@ mlartifacts/
 *.ndjson
 audit/*.ndjson
 
+# Large regenerable explain artifact (~6.5 MB; regenerate via scripts/explain_metabric.py)
+audit/dmoi_explain_external_per_patient.tsv
+
 # Outputs / reports
 artifacts/
 reports/

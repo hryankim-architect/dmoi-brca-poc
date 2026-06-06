@@ -523,8 +523,8 @@ pole-specific attributions remain the recommended interpretability
 headline.
 
 Full report: [`audit/dmoi_explain_external_v0.4.md`](audit/dmoi_explain_external_v0.4.md),
-[`audit/dmoi_explain_external_per_patient.tsv`](audit/dmoi_explain_external_per_patient.tsv)
-(70,500 rows = 1,175 × 3 × 2 × top-10),
+`audit/dmoi_explain_external_per_patient.tsv` (70,500 rows = 1,175 × 3 × 2 × top-10; ~6.5 MB,
+regenerate with `python scripts/explain_metabric.py` — not committed, to keep the clone small),
 [`audit/dmoi_explain_external_global.tsv`](audit/dmoi_explain_external_global.tsv).
 
 ---
