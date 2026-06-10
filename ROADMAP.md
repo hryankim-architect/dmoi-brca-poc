@@ -57,6 +57,12 @@ tag carries a GitHub Release. A capability portrait, not a benchmark claim (see 
     standard cBioPortal `brca_tcga_pan_can_atlas_2018` study; would require the
     multi-GB Poore et al. 2020 all-TCGA microbial dataset, and it is a *prior-free*
     input that does not exercise DMOI's gene-centric prior. Out of scope for this POC.
+  - **(d) per-set ablation** (`scripts/ablate_hallmark_sets.py` →
+    `audit/dmoi_prior_ablation.md`): every single curated Hallmark set alone (RNA-only)
+    beats top-variance(100) (LR wF1 0.82–0.84 vs 0.77); `G2M_CHECKPOINT` is the strongest
+    single set and the most load-bearing in leave-one-out (dropping it costs the most),
+    while the estrogen sets contribute less to the 5-class PAM50 task — the prior's edge
+    is proliferation-axis biology, robust across sets rather than reliant on one.
 
 The CNV third-modality extension is a separate clean-room repo:
 [`multiomics-cnv-conditioned-poc`](https://github.com/hryankim-architect/multiomics-cnv-conditioned-poc).

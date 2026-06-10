@@ -1,0 +1,96 @@
+{
+  "n": 956,
+  "classes": {
+    "Basal": 142,
+    "Her2": 67,
+    "LumA": 434,
+    "LumB": 194,
+    "Normal": 119
+  },
+  "rows": {
+    "only HALLMARK_ESTROGEN_RESPONSE_EARLY": {
+      "n_features": 107,
+      "lr_weighted_f1": 0.8182736890646508,
+      "svc_weighted_f1": 0.8036218288285142,
+      "calinski_harabasz": 96.48457688176595,
+      "davies_bouldin": 3.4962184239036893
+    },
+    "only HALLMARK_ESTROGEN_RESPONSE_LATE": {
+      "n_features": 115,
+      "lr_weighted_f1": 0.8349863227167758,
+      "svc_weighted_f1": 0.8268479858415713,
+      "calinski_harabasz": 83.18371144309286,
+      "davies_bouldin": 3.4988685806064543
+    },
+    "only HALLMARK_E2F_TARGETS": {
+      "n_features": 189,
+      "lr_weighted_f1": 0.8361650410013828,
+      "svc_weighted_f1": 0.8202809013690657,
+      "calinski_harabasz": 119.19262458619447,
+      "davies_bouldin": 3.559613908688817
+    },
+    "only HALLMARK_G2M_CHECKPOINT": {
+      "n_features": 185,
+      "lr_weighted_f1": 0.8406099125170876,
+      "svc_weighted_f1": 0.8443239429547387,
+      "calinski_harabasz": 109.31631671800822,
+      "davies_bouldin": 3.5340121208128847
+    },
+    "only HALLMARK_MYC_TARGETS_V1": {
+      "n_features": 188,
+      "lr_weighted_f1": 0.8152059221509689,
+      "svc_weighted_f1": 0.8181333124211404,
+      "calinski_harabasz": 63.02458269934466,
+      "davies_bouldin": 4.094567482465064
+    },
+    "5-set minus HALLMARK_ESTROGEN_RESPONSE_EARLY": {
+      "n_features": 100,
+      "lr_weighted_f1": 0.8881394894333832,
+      "svc_weighted_f1": 0.8721403641459297,
+      "calinski_harabasz": 164.97308552681798,
+      "davies_bouldin": 2.17151901862826
+    },
+    "5-set minus HALLMARK_ESTROGEN_RESPONSE_LATE": {
+      "n_features": 100,
+      "lr_weighted_f1": 0.884476702040231,
+      "svc_weighted_f1": 0.8747546908805773,
+      "calinski_harabasz": 179.92732839041906,
+      "davies_bouldin": 2.057029867553628
+    },
+    "5-set minus HALLMARK_E2F_TARGETS": {
+      "n_features": 100,
+      "lr_weighted_f1": 0.8739709361604717,
+      "svc_weighted_f1": 0.8620446586110034,
+      "calinski_harabasz": 149.57802891877503,
+      "davies_bouldin": 2.330527510451641
+    },
+    "5-set minus HALLMARK_G2M_CHECKPOINT": {
+      "n_features": 100,
+      "lr_weighted_f1": 0.8673485002335672,
+      "svc_weighted_f1": 0.8638076351791011,
+      "calinski_harabasz": 146.3763589635891,
+      "davies_bouldin": 2.359756689276136
+    },
+    "5-set minus HALLMARK_MYC_TARGETS_V1": {
+      "n_features": 100,
+      "lr_weighted_f1": 0.8724940909819869,
+      "svc_weighted_f1": 0.8636149461722049,
+      "calinski_harabasz": 152.8232851237488,
+      "davies_bouldin": 2.311089546487577
+    },
+    "all 5 sets (cap100)": {
+      "n_features": 100,
+      "lr_weighted_f1": 0.8724940909819869,
+      "svc_weighted_f1": 0.8636149461722049,
+      "calinski_harabasz": 152.8232851237488,
+      "davies_bouldin": 2.311089546487577
+    },
+    "top-variance(100)": {
+      "n_features": 100,
+      "lr_weighted_f1": 0.7726256150949369,
+      "svc_weighted_f1": 0.7727791043764232,
+      "calinski_harabasz": 87.68909045428047,
+      "davies_bouldin": 3.042460678509165
+    }
+  }
+}
