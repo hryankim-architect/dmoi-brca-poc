@@ -10,12 +10,13 @@ ARTIFACT_DIR := artifacts
 DATA_DIR := data
 REPORT_DIR := reports
 
-.PHONY: help install data run test report lint clean canary
+.PHONY: help install data run test report lint clean canary compare
 
 help:
 	@echo "make install      Install pinned dependencies via uv"
 	@echo "make data         Download + checksum-verify public inputs from data/manifest.yaml"
 	@echo "make run          Run the end-to-end pipeline (audit + MLflow hooks engaged)"
+	@echo "make compare      Prior-vs-unsupervised feature-selection comparison (~40s)"
 	@echo "make test         Run pytest"
 	@echo "make report       (stub) notebooks/demo.ipynb not present in this repo"
 	@echo "make lint         ruff check"
@@ -31,6 +32,11 @@ data:
 
 run: | $(ARTIFACT_DIR)
 	$(PYTHON) -m $(PKG).pipeline run --name $(RUN_NAME) --out $(ARTIFACT_DIR)
+
+# Needs the TCGA-BRCA inputs in data/tcga_brca/ (HiSeqV2.gz, HumanMethylation450.gz,
+# hm450_probemap.tsv, BRCA_clinicalMatrix.tsv) -- run `make data` first if missing.
+compare:
+	PYTHONPATH=src $(PYTHON) scripts/compare_mofa_mogcn.py
 
 test:
 	$(PYTHON) -m pytest -q

@@ -11,31 +11,31 @@
   "results": {
     "DMOI-prior RNA+meth (100+100)": {
       "n_features": 200,
-      "lr_weighted_f1": 0.8745191923377987,
+      "lr_weighted_f1": 0.8760844613820128,
       "svc_weighted_f1": 0.8562973209848612,
-      "calinski_harabasz": 66.69497680664062,
-      "davies_bouldin": 2.795463949615314
+      "calinski_harabasz": 66.69497254771716,
+      "davies_bouldin": 2.7954639255434683
     },
     "DMOI-prior RNA+meth (full)": {
       "n_features": 12640,
-      "lr_weighted_f1": 0.8385745823643151,
+      "lr_weighted_f1": 0.8370112432113375,
       "svc_weighted_f1": 0.8539710503586491,
-      "calinski_harabasz": 12.194875717163086,
-      "davies_bouldin": 5.822646890540556
+      "calinski_harabasz": 12.194876567490883,
+      "davies_bouldin": 5.8226468652820795
     },
     "DMOI-prior RNA-only": {
       "n_features": 605,
-      "lr_weighted_f1": 0.8677317449256,
+      "lr_weighted_f1": 0.8676154371004186,
       "svc_weighted_f1": 0.8763640353903692,
-      "calinski_harabasz": 56.601470947265625,
-      "davies_bouldin": 3.06097040006409
+      "calinski_harabasz": 56.60146974376764,
+      "davies_bouldin": 3.060970298049123
     },
     "top-variance RNA+meth (100+100)": {
       "n_features": 200,
       "lr_weighted_f1": 0.8129498774787948,
       "svc_weighted_f1": 0.8239981337451028,
-      "calinski_harabasz": 40.22144317626953,
-      "davies_bouldin": 3.539368203355886
+      "calinski_harabasz": 40.2214476270032,
+      "davies_bouldin": 3.539368187460447
     }
   }
 }

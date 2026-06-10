@@ -8,8 +8,8 @@ the same footing as the unsupervised integrators in Omran et al. 2025.
 
 | selector (label-free) | n_feat | LR wF1 | SVC wF1 | CHI ↑ | DBI ↓ |
 |---|---|---|---|---|---|
-| DMOI-prior RNA+meth (100+100) | 200 | 0.875 | 0.856 | 66.7 | 2.80 |
-| DMOI-prior RNA+meth (full) | 12640 | 0.839 | 0.854 | 12.2 | 5.82 |
+| DMOI-prior RNA+meth (100+100) | 200 | 0.876 | 0.856 | 66.7 | 2.80 |
+| DMOI-prior RNA+meth (full) | 12640 | 0.837 | 0.854 | 12.2 | 5.82 |
 | DMOI-prior RNA-only | 605 | 0.868 | 0.876 | 56.6 | 3.06 |
 | top-variance RNA+meth (100+100) | 200 | 0.813 | 0.824 | 40.2 | 3.54 |
 

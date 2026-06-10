@@ -968,6 +968,14 @@ python scripts/eval_metabric_v0.10.py         # ~10 min on MPS
                                               # writes audit/dmoi_v0.10.md
                                               # METABRIC AUROC 0.965, 8/8 priors, 3/3+3/3 top-3 stable
                                               # framework reusability across BOTH axes
+
+# 15. (v0.15) Prior-as-feature-selector vs unsupervised baselines (5-class PAM50).
+make compare                                  # or: PYTHONPATH=src python scripts/compare_mofa_mogcn.py
+                                              # ~40s; streams HM450 once
+                                              # writes audit/dmoi_vs_mofa_mogcn.md + .json
+                                              # needs data/tcga_brca/{HiSeqV2.gz,
+                                              #   HumanMethylation450.gz, hm450_probemap.tsv,
+                                              #   BRCA_clinicalMatrix.tsv}; run `make data` if missing
 ```
 
 Requires Python 3.11+; lower-bound pins: `numpy>=1.26`, `scikit-learn>=1.4`, `torch>=2.3`,
