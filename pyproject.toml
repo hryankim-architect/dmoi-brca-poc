@@ -1,6 +1,6 @@
 [project]
 name = "dmoi-brca-poc"
-version = "0.1.0"
+version = "0.17.0"
 description = "Capability-portrait scaffold for bioinformatics R&D repos."
 readme = "README.md"
 license = { text = "MIT" }
