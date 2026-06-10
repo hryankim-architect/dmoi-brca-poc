@@ -79,6 +79,28 @@ def topvar_indices(X: np.ndarray, k: int) -> list[int]:
     return idx.tolist()
 
 
+def topvar_within(X: np.ndarray, candidate_idx: Sequence[int], k: int) -> list[int]:
+    """Top-k highest-variance columns among ``candidate_idx``, as ORIGINAL indices.
+
+    Lets a knowledge prior (candidate_idx) be capped to a fixed budget by variance —
+    still label-free — while keeping the original column indices so selections from
+    different selectors can be compared (e.g. via ``jaccard_index``).
+    """
+    cand = list(candidate_idx)
+    if k <= 0 or not cand:
+        return []
+    var = np.nanvar(X[:, cand], axis=0)
+    order = np.argsort(-var)[: min(k, len(cand))]
+    return [cand[i] for i in order]
+
+
+def jaccard_index(a: Sequence[int], b: Sequence[int]) -> float:
+    """Jaccard overlap |A∩B| / |A∪B| of two index/feature sets (0.0 if both empty)."""
+    sa, sb = set(a), set(b)
+    union = sa | sb
+    return len(sa & sb) / len(union) if union else 0.0
+
+
 def eval_selector(
     X: np.ndarray,
     y: np.ndarray,

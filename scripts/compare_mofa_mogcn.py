@@ -33,9 +33,12 @@ except ImportError:  # pragma: no cover
 from dmoi_brca.compare_integration import (  # noqa: E402
     eval_selector,
     hallmark_gene_universe,
+    jaccard_index,
     prior_rna_indices,
     topvar_indices,
+    topvar_within,
 )
+from dmoi_brca.hallmark import load_hallmark_gmt  # noqa: E402
 from dmoi_brca.hypothesis_attention import load_hm450_cis_mapping  # noqa: E402
 
 DATA = REPO / "data" / "tcga_brca"
@@ -107,9 +110,12 @@ def main() -> int:
 
     rna, genes = _load_rna(lab)
     cis = load_hm450_cis_mapping(str(DATA / "hm450_probemap.tsv"))
-    universe = hallmark_gene_universe()
-    prior_probes = {p for p, g in cis.items() if g and (g & universe)}
-    samples, _pp, xp_m, _tv, xv_m = _stream_meth(lab, prior_probes)
+    curated_univ = hallmark_gene_universe()                                  # 5 curated sets
+    full_sets = load_hallmark_gmt(str(REPO / "data" / "msigdb" / "h.all.v2024.1.Hs.symbols.gmt"))
+    full_univ = hallmark_gene_universe(full_sets)                            # all 50 sets
+    # Stream once keeping every probe cis-mapped to the FULL universe (curated ⊂ full).
+    prior_probes = {p for p, g in cis.items() if g and (g & full_univ)}
+    samples, pp, xp_m, _tv, xv_m = _stream_meth(lab, prior_probes)
 
     midx = {s: i for i, s in enumerate(samples)}
     common = [s for s in rna.index if s in midx]
@@ -117,30 +123,54 @@ def main() -> int:
     x_rna = rna.loc[common].to_numpy(np.float32)
     xp_m = xp_m[[midx[s] for s in common]]
     xv_m = xv_m[[midx[s] for s in common]]
-    pr = prior_rna_indices(genes)
 
-    def cap(x: np.ndarray, k: int) -> np.ndarray:
-        return x[:, topvar_indices(x, k)]
+    # Candidate column indices per selector (label-free), then cap each side to 100 by variance.
+    rna_curated = prior_rna_indices(genes, None)         # genes in the 5 curated sets
+    rna_full = prior_rna_indices(genes, full_sets)       # genes in all 50 sets
+    meth_curated = [j for j, p in enumerate(pp) if cis.get(p, set()) & curated_univ]
+    meth_full = list(range(len(pp)))                     # all streamed prior probes (full universe)
 
-    x_rna_prior = x_rna[:, pr]
-    selectors = {
-        "DMOI-prior RNA+meth (100+100)": np.hstack([cap(x_rna_prior, 100), cap(xp_m, 100)]),
-        "DMOI-prior RNA+meth (full)": np.hstack([x_rna_prior, xp_m]),
-        "DMOI-prior RNA-only": x_rna_prior,
-        "top-variance RNA+meth (100+100)": np.hstack([cap(x_rna, 100), cap(xv_m, 100)]),
+    sel_rna = {
+        "DMOI-prior(5-set)": topvar_within(x_rna, rna_curated, 100),
+        "DMOI-prior(50-set)": topvar_within(x_rna, rna_full, 100),
+        "top-variance": topvar_indices(x_rna, 100),
     }
-    results = {name: eval_selector(x, y) for name, x in selectors.items()}
+    sel_meth = {
+        "DMOI-prior(5-set)": ("p", topvar_within(xp_m, meth_curated, 100)),
+        "DMOI-prior(50-set)": ("p", topvar_within(xp_m, meth_full, 100)),
+        "top-variance": ("v", topvar_indices(xv_m, 100)),
+    }
+
+    def build(name: str) -> np.ndarray:
+        src, mi = sel_meth[name]
+        meth = (xp_m if src == "p" else xv_m)[:, mi]
+        return np.hstack([x_rna[:, sel_rna[name]], meth])
+
+    names = ["DMOI-prior(5-set)", "DMOI-prior(50-set)", "top-variance"]
+    results = {f"{n} RNA+meth (100+100)": eval_selector(build(n), y) for n in names}
+
+    # (b) interpretability: Jaccard of the RNA gene selections (paradigm-neutral).
+    gset = {n: {genes[i] for i in sel_rna[n]} for n in names}
+    jaccard = {
+        "5-set_vs_50-set": jaccard_index(gset["DMOI-prior(5-set)"], gset["DMOI-prior(50-set)"]),
+        "5-set_prior_vs_top-variance": jaccard_index(
+            gset["DMOI-prior(5-set)"], gset["top-variance"]),
+        "50-set_prior_vs_top-variance": jaccard_index(
+            gset["DMOI-prior(50-set)"], gset["top-variance"]),
+    }
 
     classes = {str(k): int(v) for k, v in zip(*np.unique(y, return_counts=True), strict=False)}
-    out = {"n_common": len(common), "classes": classes,
-           "mofa_plus_reference_f1": MOFA_REF_F1, "results": results}
+    out = {"n_common": len(common), "classes": classes, "mofa_plus_reference_f1": MOFA_REF_F1,
+           "n_prior_genes": {"5-set": len(rna_curated), "50-set": len(rna_full)},
+           "results": results, "rna_jaccard": jaccard}
     (REPO / "audit" / "dmoi_vs_mofa_mogcn.json").write_text(json.dumps(out, indent=2))
     (REPO / "audit" / "dmoi_vs_mofa_mogcn.md").write_text(_render(out))
-    _audit("compare.done", {"n_common": len(common), "results": results})
+    _audit("compare.done", {"n_common": len(common), "results": results, "rna_jaccard": jaccard})
     for name, r in results.items():
-        print(f"{name:34s} n={r['n_features']:5d} "
+        print(f"{name:36s} n={r['n_features']:4d} "
               f"LR-wF1={r['lr_weighted_f1']:.3f} SVC-wF1={r['svc_weighted_f1']:.3f} "
               f"CHI={r['calinski_harabasz']:.1f} DBI={r['davies_bouldin']:.2f}")
+    print("RNA Jaccard:", {k: round(v, 3) for k, v in jaccard.items()})
     print("wrote audit/dmoi_vs_mofa_mogcn.md + .json")
     return 0
 
@@ -151,27 +181,44 @@ def _render(out: dict) -> str:
         f"{r['svc_weighted_f1']:.3f} | {r['calinski_harabasz']:.1f} | {r['davies_bouldin']:.2f} |"
         for name, r in out["results"].items()
     )
+    jac = "\n".join(f"| {k} | {v:.3f} |" for k, v in out["rna_jaccard"].items())
+    npg = out["n_prior_genes"]
     return f"""# DMOI biological prior vs unsupervised feature selection (PAM50, TCGA-BRCA)
 
 n = {out['n_common']} samples with RNA + HM450 methylation + a PAM50 call
 ({out['classes']}). 5-class weighted-F1, stratified 5-fold; **every selector is
 label-free** (priors use knowledge, top-variance uses statistics — neither sees `y`),
 so the downstream classifier is the only supervised step. This puts DMOI's prior on
-the same footing as the unsupervised integrators in Omran et al. 2025.
+the same footing as the unsupervised integrators in Omran et al. 2025. Prior breadth:
+**{npg['5-set']}** RNA genes in the 5 curated Hallmark sets vs **{npg['50-set']}** in
+the full 50-set catalog (each capped to 100 features/omics by variance, label-free).
 
 | selector (label-free) | n_feat | LR wF1 | SVC wF1 | CHI ↑ | DBI ↓ |
 |---|---|---|---|---|---|
 {rows}
 
+## (b) Interpretability — RNA feature-selection overlap (Jaccard)
+
+How much do the selectors *choose the same genes*? A paradigm-neutral view of whether
+the biological prior is picking a distinct, knowledge-driven feature set rather than
+re-deriving the variance ranking.
+
+| comparison | Jaccard |
+|---|---|
+{jac}
+
 ## Reading
 
-- **At a matched, paper-comparable budget (100 features/omics), DMOI's biological
-  prior beats top-variance selection** on weighted-F1 and gives markedly better-
-  separated subtype clusters (higher Calinski-Harabasz, lower Davies-Bouldin). This is
-  the apples-to-apples result: prior vs statistical selection, same downstream model.
-- More features is not better: the full prior set (thousands of methylation probes)
-  underperforms the 100+100 budget — echoing the feature-selection motivation of the
-  source paper.
+- **At a matched 100-feature/omics budget, the biological prior beats top-variance
+  selection** on weighted-F1 with better-separated subtype clusters (higher
+  Calinski-Harabasz, lower Davies-Bouldin) — prior vs statistical selection, same
+  downstream model.
+- **(a) Prior breadth:** the 5 curated proliferation/ER sets vs the full 50-set catalog
+  — compare their rows above to see whether widening the prior helps or dilutes the
+  luminal-axis signal.
+- **(b) Low Jaccard vs top-variance** means the prior is selecting a genuinely different
+  (knowledge-driven), not variance-redundant, feature set — so any F1/clustering edge
+  comes from the biology, not from re-discovering high-variance genes.
 
 ## Literature reference (NOT a controlled head-to-head)
 

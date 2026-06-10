@@ -8,27 +8,24 @@
     "Normal": 87
   },
   "mofa_plus_reference_f1": 0.75,
+  "n_prior_genes": {
+    "5-set": 605,
+    "50-set": 4191
+  },
   "results": {
-    "DMOI-prior RNA+meth (100+100)": {
+    "DMOI-prior(5-set) RNA+meth (100+100)": {
       "n_features": 200,
-      "lr_weighted_f1": 0.8760844613820128,
-      "svc_weighted_f1": 0.8562973209848612,
-      "calinski_harabasz": 66.69497254771716,
-      "davies_bouldin": 2.7954639255434683
+      "lr_weighted_f1": 0.875929697239464,
+      "svc_weighted_f1": 0.8709047884230111,
+      "calinski_harabasz": 65.88112370976118,
+      "davies_bouldin": 2.819075445547662
     },
-    "DMOI-prior RNA+meth (full)": {
-      "n_features": 12640,
-      "lr_weighted_f1": 0.8370112432113375,
-      "svc_weighted_f1": 0.8539710503586491,
-      "calinski_harabasz": 12.194876567490883,
-      "davies_bouldin": 5.8226468652820795
-    },
-    "DMOI-prior RNA-only": {
-      "n_features": 605,
-      "lr_weighted_f1": 0.8676154371004186,
-      "svc_weighted_f1": 0.8763640353903692,
-      "calinski_harabasz": 56.60146974376764,
-      "davies_bouldin": 3.060970298049123
+    "DMOI-prior(50-set) RNA+meth (100+100)": {
+      "n_features": 200,
+      "lr_weighted_f1": 0.8210899349253605,
+      "svc_weighted_f1": 0.80424085564012,
+      "calinski_harabasz": 55.5043692301957,
+      "davies_bouldin": 3.0017089500438656
     },
     "top-variance RNA+meth (100+100)": {
       "n_features": 200,
@@ -37,5 +34,10 @@
       "calinski_harabasz": 40.2214476270032,
       "davies_bouldin": 3.539368187460447
     }
+  },
+  "rna_jaccard": {
+    "5-set_vs_50-set": 0.08695652173913043,
+    "5-set_prior_vs_top-variance": 0.03626943005181347,
+    "50-set_prior_vs_top-variance": 0.2345679012345679
   }
 }

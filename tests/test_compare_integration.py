@@ -5,9 +5,11 @@ import numpy as np
 from dmoi_brca.compare_integration import (
     eval_selector,
     hallmark_gene_universe,
+    jaccard_index,
     prior_meth_indices,
     prior_rna_indices,
     topvar_indices,
+    topvar_within,
 )
 
 FAKE_SETS = {"SET_A": ("GENE1", "GENE2"), "SET_B": ("GENE2", "GENE3")}
@@ -37,6 +39,24 @@ def test_topvar_indices_picks_highest_variance():
     assert topvar_indices(X, 2) == [1, 2]
     assert topvar_indices(X, 99) == [1, 2, 0]  # k clamped to n_cols, var-sorted
     assert topvar_indices(X, 0) == []
+
+
+def test_topvar_within_returns_original_indices_by_variance():
+    X = np.array([[0.0, 0.0, 0.0, 0.0],
+                  [1.0, 0.0, 9.0, 2.0],
+                  [-1.0, 0.0, -9.0, -2.0]])
+    cand = [0, 1, 3]  # exclude the highest-variance col 2; pick top-2 within candidates
+    assert topvar_within(X, cand, 2) == [3, 0]  # col3 var > col0 var > col1(zero)
+    assert topvar_within(X, cand, 99) == [3, 0, 1]
+    assert topvar_within(X, [], 2) == []
+    assert topvar_within(X, cand, 0) == []
+
+
+def test_jaccard_index():
+    assert jaccard_index([1, 2, 3], [2, 3, 4]) == 0.5  # ∩={2,3}, ∪={1,2,3,4}
+    assert jaccard_index([1, 2], [1, 2]) == 1.0
+    assert jaccard_index([1], [2]) == 0.0
+    assert jaccard_index([], []) == 0.0
 
 
 def test_eval_selector_shape_and_separable_signal():

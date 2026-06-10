@@ -43,9 +43,20 @@ tag carries a GitHub Release. A capability portrait, not a benchmark claim (see 
   (`scripts/compare_mofa_mogcn.py` → `audit/dmoi_vs_mofa_mogcn.md`). Resolves the
   supervised-vs-unsupervised confound by comparing label-free selectors only. Result
   (n=620, RNA+meth): at a matched 100-feature/omics budget the prior beats top-variance
-  (LR wF1 0.875 vs 0.813; CHI 66.7 vs 40.2). MOFA+/MoGCN (Omran et al. 2025, F1 0.75,
+  (LR wF1 0.876 vs 0.813; CHI 65.9 vs 40.2). MOFA+/MoGCN (Omran et al. 2025, F1 0.75,
   3-omics incl. microbiome) cited as a literature reference, not a controlled head-to-head
   (different omics + non-identical cohort — see the report's caveats).
+  - **(a) prior breadth:** the 5 curated proliferation/ER sets (LR wF1 0.876) *beat* the
+    full 50-set Hallmark catalog (0.819) — widening the prior dilutes the luminal-axis
+    signal back toward the variance baseline. Specificity, not just "use a prior", is
+    what helps.
+  - **(b) interpretability (Jaccard):** the 5-set prior's selected RNA genes barely
+    overlap the top-variance pick (Jaccard 0.036) — the F1/clustering edge is biology-
+    driven, not a re-derivation of high-variance genes.
+  - **(c) microbiome 3rd omic — deferred (documented blocker):** not present in the
+    standard cBioPortal `brca_tcga_pan_can_atlas_2018` study; would require the
+    multi-GB Poore et al. 2020 all-TCGA microbial dataset, and it is a *prior-free*
+    input that does not exercise DMOI's gene-centric prior. Out of scope for this POC.
 
 The CNV third-modality extension is a separate clean-room repo:
 [`multiomics-cnv-conditioned-poc`](https://github.com/hryankim-architect/multiomics-cnv-conditioned-poc).
