@@ -32,7 +32,7 @@ and the two task axes are sealed as split-invariant under 5-fold CV.
 | Cross-task same-cohort (Luminal-vs-Basal, TCGA) | AUROC **1.0000 ± 0.0000** (5-fold) | v0.9 → v0.11 |
 | Cross-cohort + cross-task (→ METABRIC) | AUROC **0.965**, 8/8 expected priors hit | v0.10 |
 | Cross-task #2 + cross-cohort (HER2-vs-Luminal) | TCGA 5-fold AUROC **0.892 ± 0.056** / METABRIC **0.893**; 5/5 expected priors fold-invariant (ER vs PI3K-MTOR-G2M) | v0.14 |
-| Calibration transfer | within-cohort ECE **0.138 → 0.077**; cross-cohort: raw METABRIC ECE **0.074** ≈ labelled oracle (no T-transfer beats leaving probabilities raw) | v0.1 / v0.2 / v0.13 |
+| Calibration transfer | within-cohort held-out test ECE **0.143 → 0.079** (T≈0.63 fit on a 15% cal split of train); cross-cohort: raw METABRIC ECE **0.074** ≈ labelled oracle (no T-transfer beats leaving probabilities raw) | v0.1 / v0.2 / v0.13 |
 | Adversarial check | 3-variant experiment **falsified** trainable pathway-attention | v0.7 / v0.8 |
 
 The progression is one arc: a finding, then systematic testing, then a falsified alternative, then generalization across cohort, task, and both at once, and finally confirmation that it holds under split perturbation on every measurable axis. The dense per-version tables and analysis follow below.
@@ -91,9 +91,11 @@ table and verdict to `audit/`.
    number, the LogReg ceiling reflects the structure of the data, not a
    model limitation we can engineer around.
 
-3. **Calibration was the v0.1 win.** Temperature scaling on a held-out
-   15% nested calibration split cuts ECE roughly in half on TCGA (0.138 →
-   0.077). T < 1, the architecture is *under*-confident, not over-confident.
+3. **Calibration was the v0.1 win.** Temperature scaling (T ≈ 0.63, fit on a
+   15% calibration split of train) cuts ECE on a held-out TCGA test set nearly
+   in half (**0.143 → 0.079**). T < 1, the architecture is *under*-confident,
+   not over-confident. (The 5-fold CV view is more conservative — nested ECE
+   0.157 → 0.121 — and is reported in `audit/dmoi_eval_v0.md`.)
 
 4. **External generalization was the v0.2 win.** A truly held-out TCGA test
    split (random_state=2024, never seen during model dev) scores AUROC 0.968.
