@@ -941,6 +941,10 @@ downstream model. A microbiome third omic was deferred (absent from the standard
 cBioPortal BRCA study; prior-free, so it doesn't exercise DMOI's gene-centric prior).
 Reproduce with `make compare` and the four scripts above.
 
+**Cross-omics synthesis.** The same prior-vs-baseline comparison was ported to CNV in
+the sibling repo; a one-page write-up across RNA, methylation, and CNV is in
+[`docs/multiomics-prior-vs-baseline.md`](docs/multiomics-prior-vs-baseline.md).
+
 ---
 
 ## Reproduce
