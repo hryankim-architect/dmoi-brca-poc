@@ -101,6 +101,25 @@ def jaccard_index(a: Sequence[int], b: Sequence[int]) -> float:
     return len(sa & sb) / len(union) if union else 0.0
 
 
+def bh_fdr(pvalues: Sequence[float]) -> np.ndarray:
+    """Benjamini-Hochberg FDR-adjusted q-values for a 1-D array of p-values.
+
+    Used by the clinical-association interpretability metric: how many prior- vs
+    variance-selected genes are significantly associated with independent clinical
+    variables after multiple-testing correction.
+    """
+    p = np.asarray(pvalues, dtype=float)
+    n = p.size
+    if n == 0:
+        return p
+    order = np.argsort(p)
+    ranked = p[order] * n / (np.arange(n) + 1)
+    ranked = np.minimum.accumulate(ranked[::-1])[::-1]  # enforce monotonic q
+    out = np.empty(n, dtype=float)
+    out[order] = np.clip(ranked, 0.0, 1.0)
+    return out
+
+
 def eval_selector(
     X: np.ndarray,
     y: np.ndarray,

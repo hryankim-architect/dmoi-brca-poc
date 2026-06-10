@@ -1,0 +1,31 @@
+{
+  "n": 628,
+  "n_lumB": 194,
+  "n_lumA": 434,
+  "results": {
+    "DMOI-prior(5-set)": {
+      "n_features": 100,
+      "lr_weighted_f1": 0.8795206570471447,
+      "svc_weighted_f1": 0.8731401471444722,
+      "calinski_harabasz": 52.043242228016325,
+      "davies_bouldin": 3.1119283068120143,
+      "auroc": 0.9478800944128256
+    },
+    "DMOI-prior(50-set)": {
+      "n_features": 100,
+      "lr_weighted_f1": 0.7822975654718892,
+      "svc_weighted_f1": 0.7684997720306574,
+      "calinski_harabasz": 26.322674561551924,
+      "davies_bouldin": 4.440668433530577,
+      "auroc": 0.840274616795108
+    },
+    "top-variance": {
+      "n_features": 100,
+      "lr_weighted_f1": 0.7668106690076948,
+      "svc_weighted_f1": 0.7568279725948359,
+      "calinski_harabasz": 19.7224231724731,
+      "davies_bouldin": 5.164758532778869,
+      "auroc": 0.8249163714913094
+    }
+  }
+}

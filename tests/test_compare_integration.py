@@ -3,6 +3,7 @@ from __future__ import annotations
 import numpy as np
 
 from dmoi_brca.compare_integration import (
+    bh_fdr,
     eval_selector,
     hallmark_gene_universe,
     jaccard_index,
@@ -57,6 +58,16 @@ def test_jaccard_index():
     assert jaccard_index([1, 2], [1, 2]) == 1.0
     assert jaccard_index([1], [2]) == 0.0
     assert jaccard_index([], []) == 0.0
+
+
+def test_bh_fdr_matches_known_values():
+    # Classic BH example: p=[0.01,0.02,0.03,0.04,0.05] with n=5.
+    q = bh_fdr([0.01, 0.02, 0.03, 0.04, 0.05])
+    assert np.allclose(q, [0.05, 0.05, 0.05, 0.05, 0.05])
+    # monotonic, clipped to [0,1], order-preserving
+    q2 = bh_fdr([0.9, 0.001, 0.5])
+    assert q2[1] < q2[2] <= q2[0] <= 1.0
+    assert bh_fdr([]).size == 0
 
 
 def test_eval_selector_shape_and_separable_signal():

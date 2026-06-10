@@ -1,0 +1,30 @@
+{
+  "n": 956,
+  "alpha": 0.05,
+  "results": {
+    "DMOI-prior(5-set)": {
+      "per_variable": {
+        "stage": 0.32,
+        "node": 0.04,
+        "age": 0.56
+      },
+      "any_variable": 0.73
+    },
+    "DMOI-prior(50-set)": {
+      "per_variable": {
+        "stage": 0.0,
+        "node": 0.01,
+        "age": 0.5
+      },
+      "any_variable": 0.5
+    },
+    "top-variance": {
+      "per_variable": {
+        "stage": 0.0,
+        "node": 0.15,
+        "age": 0.53
+      },
+      "any_variable": 0.61
+    }
+  }
+}

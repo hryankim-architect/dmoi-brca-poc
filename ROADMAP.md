@@ -63,6 +63,16 @@ tag carries a GitHub Release. A capability portrait, not a benchmark claim (see 
     single set and the most load-bearing in leave-one-out (dropping it costs the most),
     while the estrogen sets contribute less to the 5-class PAM50 task — the prior's edge
     is proliferation-axis biology, robust across sets rather than reliant on one.
+  - **(1) clinical coherence** (`scripts/clinical_association.py` →
+    `audit/dmoi_clinical_association.md`): OncoDB-style, non-circular — 73% of 5-set
+    prior genes associate with stage/node/age (independent of subtype) vs 61%
+    top-variance, 50% the 50-set prior; mirrors the paper's MOFA+>MoGCN (0.59>0.47).
+  - **(2) task generalization** (`scripts/compare_binary_task.py` →
+    `audit/dmoi_binary_lumA_lumB.md`): on the binary LumA-vs-LumB pole the prior edge
+    *widens* — 5-set AUROC 0.948 vs top-variance 0.825 (50-set 0.840), so the finding is
+    not a 5-class artifact.
+  - **(3) synthesis** (`scripts/plot_comparison_summary.py` →
+    `audit/dmoi_comparison_summary.{png,md}`): two-panel figure + note tying it together.
 
 The CNV third-modality extension is a separate clean-room repo:
 [`multiomics-cnv-conditioned-poc`](https://github.com/hryankim-architect/multiomics-cnv-conditioned-poc).
