@@ -105,7 +105,8 @@ reusability**:
 
 1. **Calibration transfer**, T < 1 under-confident finding;
    cohort-specific `T_TCGA=0.634` vs `T_METABRIC=0.934`; ECE
-   0.138 → 0.077 (v0.1 / v0.2).
+   0.143 → 0.079 (held-out; corrected 2026-06-10 from an earlier
+   mis-stated 0.138 → 0.077 — see `audit/dmoi_eval_v0.md`).
 2. **Cross-cohort same-task**, LumA-vs-LumB METABRIC AUROC =
    0.909; gene-level Jaccard top-10 = 0.667 (v0.4).
 3. **Cross-task same-cohort**, Luminal-vs-Basal TCGA cohort_v3
