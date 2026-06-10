@@ -10,7 +10,7 @@ ARTIFACT_DIR := artifacts
 DATA_DIR := data
 REPORT_DIR := reports
 
-.PHONY: help install data run test report lint clean canary compare
+.PHONY: help install data run test report lint clean canary compare ci
 
 help:
 	@echo "make install      Install pinned dependencies via uv"
@@ -49,6 +49,9 @@ lint:
 
 canary:
 	$(PYTHON) -m $(PKG).canary
+
+ci: lint test canary
+	@echo "ci: ruff + pytest + canary all passed"
 
 
 clean:
