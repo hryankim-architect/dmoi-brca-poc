@@ -35,6 +35,18 @@ tag carries a GitHub Release. A capability portrait, not a benchmark claim (see 
 - [x] **v0.13** — cross-cohort calibration transfer (Brier + reliability)
 - [x] **v0.14** — HER2-vs-Luminal third task axis
 
+**External method comparison (literature-grounded)**
+- [x] **v0.15** — prior-as-feature-selector vs unsupervised baselines on 5-class PAM50.
+  `compare_integration.py` exposes DMOI's *label-free* Hallmark + HM450-cis restriction
+  as a feature selector, benchmarked against top-variance through the same downstream
+  LR/SVC 5-fold weighted-F1 + Calinski-Harabasz / Davies-Bouldin
+  (`scripts/compare_mofa_mogcn.py` → `audit/dmoi_vs_mofa_mogcn.md`). Resolves the
+  supervised-vs-unsupervised confound by comparing label-free selectors only. Result
+  (n=620, RNA+meth): at a matched 100-feature/omics budget the prior beats top-variance
+  (LR wF1 0.875 vs 0.813; CHI 66.7 vs 40.2). MOFA+/MoGCN (Omran et al. 2025, F1 0.75,
+  3-omics incl. microbiome) cited as a literature reference, not a controlled head-to-head
+  (different omics + non-identical cohort — see the report's caveats).
+
 The CNV third-modality extension is a separate clean-room repo:
 [`multiomics-cnv-conditioned-poc`](https://github.com/hryankim-architect/multiomics-cnv-conditioned-poc).
 

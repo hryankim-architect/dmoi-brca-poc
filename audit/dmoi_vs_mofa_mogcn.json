@@ -1,0 +1,41 @@
+{
+  "n_common": 620,
+  "classes": {
+    "Basal": 87,
+    "Her2": 31,
+    "LumA": 288,
+    "LumB": 127,
+    "Normal": 87
+  },
+  "mofa_plus_reference_f1": 0.75,
+  "results": {
+    "DMOI-prior RNA+meth (100+100)": {
+      "n_features": 200,
+      "lr_weighted_f1": 0.8745191923377987,
+      "svc_weighted_f1": 0.8562973209848612,
+      "calinski_harabasz": 66.69497680664062,
+      "davies_bouldin": 2.795463949615314
+    },
+    "DMOI-prior RNA+meth (full)": {
+      "n_features": 12640,
+      "lr_weighted_f1": 0.8385745823643151,
+      "svc_weighted_f1": 0.8539710503586491,
+      "calinski_harabasz": 12.194875717163086,
+      "davies_bouldin": 5.822646890540556
+    },
+    "DMOI-prior RNA-only": {
+      "n_features": 605,
+      "lr_weighted_f1": 0.8677317449256,
+      "svc_weighted_f1": 0.8763640353903692,
+      "calinski_harabasz": 56.601470947265625,
+      "davies_bouldin": 3.06097040006409
+    },
+    "top-variance RNA+meth (100+100)": {
+      "n_features": 200,
+      "lr_weighted_f1": 0.8129498774787948,
+      "svc_weighted_f1": 0.8239981337451028,
+      "calinski_harabasz": 40.22144317626953,
+      "davies_bouldin": 3.539368203355886
+    }
+  }
+}
