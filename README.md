@@ -898,6 +898,51 @@ Full report: [`audit/dmoi_v0.10.md`](audit/dmoi_v0.10.md).
 
 ---
 
+## External comparison: biological prior vs unsupervised integration (v0.15–v0.17)
+
+How does DMOI's biological prior compare to general multi-omics integrators like
+**MOFA+** and **MoGCN**? Omran et al. 2025 (J Transl Med,
+[doi:10.1186/s12967-025-06662-5](https://doi.org/10.1186/s12967-025-06662-5)) benchmarked
+those two as *unsupervised feature selectors* for TCGA-BRCA PAM50 subtyping. DMOI's
+Hallmark + HM450-cis feature restriction is **also label-free**, so it slots into the
+exact same protocol — which resolves the supervised-vs-unsupervised confound: every
+selector picks features without labels, and a shared downstream LR/SVC is the only
+supervised step.
+
+![prior vs unsupervised](audit/dmoi_comparison_summary.png)
+
+On public TCGA-BRCA (n=620 RNA+meth, 5-class PAM50, 100 features/omics, 5-fold):
+
+| selector (label-free) | LR weighted-F1 |
+|---|---|
+| **DMOI-prior (5 curated Hallmark sets)** | **0.876** |
+| DMOI-prior (full 50-set catalog) | 0.819 |
+| top-variance | 0.813 |
+| *MOFA+ (literature ref, 3-omics, diff. cohort)* | *0.75* |
+
+Four consistent findings (full reports in `audit/dmoi_vs_mofa_mogcn.md`,
+`dmoi_prior_ablation.md`, `dmoi_clinical_association.md`, `dmoi_binary_lumA_lumB.md`,
+`dmoi_comparison_summary.md`):
+
+1. **Prior > statistical selection** at a matched budget (0.876 vs 0.813), with
+   better-separated subtype clusters (Calinski-Harabasz 65.9 vs 40.2).
+2. **Specificity, not breadth** — the 5 curated proliferation/ER sets beat the full
+   50-set catalog (0.876 vs 0.819); widening the prior dilutes the signal.
+3. **The edge is biological** — selected genes barely overlap top-variance (Jaccard
+   0.036), and 73% are clinically associated (stage/node/age, independent of subtype)
+   vs 61% for top-variance — the same direction as the paper's MOFA+ > MoGCN (0.59 > 0.47).
+4. **It generalizes** — on the binary LumA-vs-LumB pole the gap *widens* (AUROC 0.948
+   vs 0.825). `G2M_CHECKPOINT` is the most load-bearing single set.
+
+**Honest scope.** The MOFA+ 0.75 is a *literature reference* (3-omics incl. shotgun
+microbiome, non-identical cohort), **not** a controlled head-to-head — the controlled
+comparison throughout is DMOI-prior vs top-variance on identical data with the same
+downstream model. A microbiome third omic was deferred (absent from the standard
+cBioPortal BRCA study; prior-free, so it doesn't exercise DMOI's gene-centric prior).
+Reproduce with `make compare` and the four scripts above.
+
+---
+
 ## Reproduce
 
 ```bash
