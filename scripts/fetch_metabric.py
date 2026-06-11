@@ -17,10 +17,16 @@ Output: data/metabric/{clinical_patient,clinical_sample,mrna_microarray}.txt
 """
 from __future__ import annotations
 
+import os
 import sys
 import urllib.error
 import urllib.request
 from pathlib import Path
+
+
+def _downloads_allowed() -> bool:
+    """Reach the network only when explicitly opted in via ``AI_ALLOW_DOWNLOAD=1``."""
+    return os.environ.get("AI_ALLOW_DOWNLOAD", "") not in ("", "0", "false", "False")
 
 REPO = Path(__file__).resolve().parents[1]
 OUT_DIR = REPO / "data" / "metabric"
@@ -76,6 +82,13 @@ def main() -> int:
                 f"{dest.stat().st_size / 1_000_000:.1f} MB)",
             )
             continue
+        if not _downloads_allowed():
+            sys.stderr.write(
+                f"  OFFLINE: {local_name} missing and downloads are disabled.\n"
+                f"  Place it at {dest}\n"
+                f"  or seed once with: AI_ALLOW_DOWNLOAD=1 python scripts/fetch_metabric.py\n",
+            )
+            return 1
         url = f"{BASE_URL}/{remote_name}"
         try:
             _download_with_progress(url, dest)

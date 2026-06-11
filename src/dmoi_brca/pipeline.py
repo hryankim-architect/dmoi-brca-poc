@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import time
 import urllib.request
 from datetime import UTC, datetime
@@ -25,6 +26,23 @@ import click
 import yaml
 
 from dmoi_brca import audit, tracking
+
+
+class AssetUnavailable(RuntimeError):
+    """A required input is absent and downloads are disabled (offline mode).
+
+    Mirrors the semantics of ``_offline/bin/offline_guard.py`` but is kept inline
+    so this repo stays self-sufficient (no cross-repo import at runtime).
+    """
+
+
+def _downloads_allowed() -> bool:
+    """Reach the network only when explicitly opted in via ``AI_ALLOW_DOWNLOAD=1``.
+
+    Default (unset/0) is fully offline: cached inputs are used, missing ones raise
+    a clear, actionable error instead of silently fetching.
+    """
+    return os.environ.get("AI_ALLOW_DOWNLOAD", "") not in ("", "0", "false", "False")
 
 
 def _run_id(name: str) -> str:
@@ -59,6 +77,14 @@ def fetch_manifest(manifest_path: Path, out_dir: Path) -> dict[str, Any]:
             results.append({"path": str(dest), "status": "cached"})
             continue
 
+        if not _downloads_allowed():
+            raise AssetUnavailable(
+                f"{rel} is not cached and downloads are disabled (offline mode).\n"
+                f"  expected at: {dest}\n"
+                f"  source url:  {url}\n"
+                f"  To seed once (needs network): set AI_ALLOW_DOWNLOAD=1, or run\n"
+                f"      AI_ALLOW_DOWNLOAD=1 _offline/bin/seed-assets.sh dmoi-brca-poc"
+            )
         urllib.request.urlretrieve(url, dest)
         actual = _checksum(dest)
         if expected and actual != expected:

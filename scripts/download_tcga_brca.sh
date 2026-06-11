@@ -13,6 +13,22 @@ LOG_PREFIX="[dmoi_brca_download $(date -u +%Y-%m-%dT%H:%M:%SZ)]"
 mkdir -p "$DEST"
 echo "$LOG_PREFIX starting; dest=$DEST"
 
+# --- offline gate: only fetch when explicitly allowed (mirrors _offline/offline_guard) ---
+if [[ "${AI_ALLOW_DOWNLOAD:-0}" != "1" ]]; then
+  miss=()
+  for f in "$DEST/HiSeqV2.gz" "$DEST/HumanMethylation450.gz" "$DEST/BRCA_clinicalMatrix.tsv"; do
+    [[ -f "$f" ]] || miss+=("$f")
+  done
+  if [[ ${#miss[@]} -eq 0 ]]; then
+    echo "$LOG_PREFIX offline: all TCGA-BRCA inputs already present; nothing to download."
+    exit 0
+  fi
+  echo "$LOG_PREFIX OFFLINE: ${#miss[@]} file(s) missing and downloads disabled:"
+  printf '  %s\n' "${miss[@]}"
+  echo "  Seed once with: AI_ALLOW_DOWNLOAD=1 bash scripts/download_tcga_brca.sh"
+  exit 2
+fi
+
 XENA_BASE="https://tcga-xena-hub.s3.us-east-1.amazonaws.com/download"
 
 # RNA-seq HiSeqV2 (~25 MB gzipped, ~1100 BRCA samples)
